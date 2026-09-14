@@ -91,31 +91,11 @@
               beautifulsoup4
               pygame-ce
             ];
-
-            nativeBuildInputs = [
-              pkgs.makeWrapper
-              pkgs.copyDesktopItems
-            ];
-
+            nativeBuildInputs = [ pkgs.makeWrapper ];
             makeWrapperArgs = [
               "--set TCL_LIBRARY ${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}"
               "--set TK_LIBRARY ${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
             ];
-
-            desktopItems = [
-              (pkgs.makeDesktopItem {
-                name = "skin-gacha";
-                exec = "skin-gacha";
-                icon = "skin-gacha";
-                desktopName = "Skin Gacha";
-                comment = "Skin Gacha Application";
-                categories = [
-                  "Game"
-                  "Utility"
-                ];
-              })
-            ];
-
             installPhase = ''
               mkdir -p $out/bin
               makeWrapper ${venv}/bin/python $out/bin/skin-gacha \
@@ -123,9 +103,6 @@
               --prefix PYTHONPATH : "${pkgs.python3Packages.tkinter}/${pkgs.python3.sitePackages}:$src" \
               --set TCL_LIBRARY "${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}" \
               --set TK_LIBRARY "${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
-
-              mkdir -p $out/share/pixmaps
-              cp $src/assets/gacha-logo.png $out/share/pixmaps/skin-gacha.png
             '';
           };
         }
