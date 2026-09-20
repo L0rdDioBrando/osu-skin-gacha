@@ -1,6 +1,8 @@
+from modules.gacha_oauth import AuthPanel, has_bancho_auth
 """Friendly first-run wizard. Changes stay in a draft until Finish."""
 from pathlib import Path
 import math
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import webbrowser
@@ -75,7 +77,9 @@ def open_setup(self):
             inner=ctk.CTkFrame(frame,fg_color='transparent')
             inner.pack(fill='x',padx=16,pady=12)
             if title: ctk.CTkLabel(inner,text=title,text_color=palette['text'],font=('Segoe UI',15,'bold'),anchor='w').pack(fill='x',pady=(0,6))
-            if hint: ctk.CTkLabel(inner,text=hint,text_color=palette['muted'],font=('Segoe UI',13),wraplength=590,justify='left').pack(side='bottom',anchor='w',pady=(7,0))
+            if hint:
+                hint_label=ctk.CTkLabel(inner,text=hint,text_color=palette['muted'],font=('Segoe UI',13),wraplength=590,justify='left')
+                hint_label.pack(side='bottom',anchor='w',pady=(7,0))
             return inner
         def note(a,b): block(ru(a,b))
         def entry(key,a,b,secret=False,hint=''):
@@ -91,8 +95,8 @@ def open_setup(self):
             ctk.CTkCheckBox(parent,text=tr(key,variables['language'].get()),variable=flag,text_color=palette['text'],
                 fg_color=accent,hover_color=blend(accent,'#000000',.08),checkmark_color=ink,font=('Segoe UI',14),
                 command=lambda:(draft.update({key:flag.get()}),render() if key=='custom_special_chance' else None)).pack(anchor='w',pady=6)
-        def choose(title,key,options,hint='',callback=None):
-            parent=block(title,hint)
+        def choose(title,key,options,hint='',callback=None,parent=None):
+            parent=parent if parent is not None else block(title,hint)
             def selected(label):
                 value=options[label];variables[key].set(value)
                 if callback: callback(value)
@@ -122,20 +126,8 @@ def open_setup(self):
         elif step[0]==1:
             game=entry('osu_path','Папка osu!','osu! folder',hint=ru('Выбери папку osu!stable, в которой находится osu!.exe.','Choose the osu!stable folder containing osu!.exe.'))
             browse('osu_path',game);check('osu_launch_enabled',game.master)
-            driver=entry('tablet_driver_path','Программа драйвера графического планшета (.exe)','Graphics tablet driver application (.exe)',hint=ru('Необязательно. Например, OpenTabletDriver. При запуске драйвер сворачивается.','Optional. For example, OpenTabletDriver. The driver starts minimized.'))
-            browse('tablet_driver_path',driver,[('Программа / Application','*.exe')]);check('tablet_driver_enabled',driver.master)
-            source_hint = {
-                'drive':('Google Drive уже настроен: превью загружаются заранее, а скин — после выигрыша.', 'Google Drive is ready to use: previews load in advance, skins download when won.'),
-                'zip':('Выбери ZIP с папками рангов и скинами .osk. Скин извлекается из архива после выигрыша.', 'Choose a ZIP with rank folders and .osk skins. The winning skin is extracted from the archive.'),
-                'folder':('Выбери папку с локальным набором скинов, распределённых по рангам.', 'Choose a local skin pack folder organised by rank.')
-            }[variables['skin_source'].get()]
-            choose(ru('Откуда брать скины','Skin source'),'skin_source',
-                {tr(v,variables['language'].get()):v for v in ('drive','zip','folder')},
-                ru(*source_hint),callback=lambda _:render())
-            if variables['skin_source'].get()=='zip':
-                archive=entry('skin_archive','ZIP со скинами','Skin ZIP archive');browse('skin_archive',archive,[('ZIP','*.zip')])
-            if variables['skin_source'].get()!='drive':
-                pack=entry('skin_pack_path','Папка набора и данных','Skin pack and data folder',hint=ru(*SETTING_HELP['skin_pack_path']));browse('skin_pack_path',pack)
+            driver=entry('tablet_driver_path','Программа драйвера графического планшета','Graphics tablet driver application',hint=ru('Необязательно. Например, OpenTabletDriver. В Windows запускается свёрнутым.','Optional. For example, OpenTabletDriver. Starts minimized on Windows.'))
+            browse('tablet_driver_path',driver,[('Программа / Application','*.exe' if os.name=='nt' else '*')]);check('tablet_driver_enabled',driver.master)
         elif step[0]==2:
             choose(ru('Где ты играешь?','Where do you play?'),'server',
                 {'osu! (Bancho)':'bancho','Gatari':'gatari',ru('Офлайн','Offline'):'offline'},callback=switch_setup_server)
@@ -144,20 +136,24 @@ def open_setup(self):
                 entry('offline_username','Имя игрока','Player name',hint=ru('Можно оставить пустым: возьмём имя из osu!.db.','Leave blank to use the name from osu!.db.'))
                 block(ru('Как работает офлайн','How offline mode works'),ru('Доступны сохранённые результаты и ранее скачанные скины. PP рассчитывается локально.','Uses saved scores and previously downloaded skins. PP is calculated locally.'))
             else:
-                example='osu.ppy.sh/users/12345' if variables['server'].get()=='bancho' else 'osu.gatari.pw/u/12345'
-                entry('user_id','ID твоего профиля','Your profile ID',hint=ru(f'Число в конце ссылки на профиль: {example} → 12345. Можно вставить через Ctrl+V.',f'The number at the end of your profile URL: {example} → 12345. Ctrl+V works here.'))
                 if variables['server'].get()=='bancho':
-                    field=entry('api_key','API-ключ osu! v1','osu! API v1 key',True,ru('Нужен для чтения твоих скоров. Хранится только в локальных настройках.','Required to read your scores. Saved only in local settings.'))
-                    ctk.CTkCheckBox(field.master,text=ru('Показать ключ','Show key'),text_color=palette['text'],fg_color=accent,checkmark_color=ink,
-                        command=lambda:field.configure(show='' if field.cget('show') else '*')).pack(anchor='w',pady=6)
-                    button(field.master,ru('Получить API-ключ','Get an API key'),lambda:webbrowser.open('https://osu.ppy.sh/p/api'),True).pack(anchor='w',pady=4)
-                else:block(ru('Ключ не нужен','No key needed'),ru('Gatari использует публичный API. Достаточно ID профиля Gatari.','Gatari uses a public API. Your Gatari profile ID is enough.'))
-            check('ignore_proxy')
+                    def auth_changed(user):
+                        variables['user_id'].set(str(user.get('id','')))
+                        variables['api_key'].set('')
+                        draft['oauth_user']=dict(user)
+                        setup_ids['bancho']=str(user.get('id',''))
+                        self.oauth_changed(user)
+                        render()
+                    auth=AuthPanel(body,self,auth_changed);auth.pack(fill='x',pady=8)
+                else:
+                    entry('user_id','ID профиля Gatari','Gatari profile ID',hint=ru('Число в конце ссылки osu.gatari.pw/u/12345 → 12345.','The number at the end of osu.gatari.pw/u/12345 → 12345.'))
+                    block(ru('Ключ не нужен','No key needed'),ru('Gatari использует публичный API. Достаточно ID профиля Gatari.','Gatari uses a public API. Your Gatari profile ID is enough.'))
+            network=block(ru('Подключение','Connection'),ru('Если osu! или Google Drive недоступны, проверь VPN. Обход прокси направляет запросы напрямую и не отключает VPN/TUN.','If osu! or Google Drive is unavailable, check your VPN. Proxy bypass connects directly without disabling VPN/TUN.'))
+            check('ignore_proxy',network)
         elif step[0]==3:
-            choose(ru('За что получать награды','What earns rewards'),'difficulty',{tr(v,variables['language'].get()):v for v in ('Hard','Medium','Fun')},
-                ru('Сложная — место в лидерборде карты (>1000 запусков, онлайн).\nСредняя — PP результата.\nФан — комбо и сложность карты.',
-                   'Hard — map leaderboard position (>1000 plays, online).\nMedium — score PP.\nFun — combo and map difficulty.'))
-            entry('interval','Интервал API, секунды','API interval, seconds',hint=ru('Обычно достаточно 15 секунд. Допустимы целые числа от 1 до 300; ограничения API сохраняются.','15 seconds is usually enough. Whole numbers from 1 to 300; API pacing still applies.'))
+            rewards=block(ru('За что получать награды','What earns rewards'),ru('Сложная — место в топе карты (>1000 запусков). Средняя — PP. Фан — комбо и звёзды.\nПороги можно изменить кнопкой «Настроить награды» под целями.','Hard — map leaderboard (>1000 plays). Medium — PP. Fun — combo and stars.\nUse Adjust rewards below your goals to change the thresholds.'))
+            choose('', 'difficulty',{tr(v,variables['language'].get()):v for v in ('Hard','Medium','Fun')},parent=rewards)
+            entry('interval','Интервал API, секунды','API interval, seconds',hint=ru('Bancho проверяется не чаще раза в 61 секунду. Для Gatari и офлайн: от 1 до 300 секунд.','Bancho polls at most once every 61 seconds. Gatari and offline: 1–300 seconds.'))
             block(ru('Особый скин','Special skin'),ru('При прибавке от 0,1 PP к профилю стандартный шанс — 5%. Защита от повторных наград на одной сложности сохраняется.',
                 'A profile gain of at least 0.1 PP has a default 5% special-skin chance. Repeated rewards on the same difficulty remain blocked.'))
         elif step[0]==4:
@@ -171,9 +167,10 @@ def open_setup(self):
                     if folder.is_dir():
                         choices.update({p.name:p.name for p in folder.iterdir() if p.is_dir() and (p/'skin.ini').is_file()})
                 if variables['interface_skin'].get():choices[variables['interface_skin'].get()]=variables['interface_skin'].get()
-                choose(ru('Основа интерфейса','Interface base'),'interface_skin',choices,ru(*SETTING_HELP['interface_skin']))
-                check('optimize_skins');check('custom_special_chance')
-                if draft['custom_special_chance']:entry('rofl_chance',*TEXT['rofl_chance'])
+                mix=block(ru('Оформление скина','Skin appearance'),ru('Геймплей — из награды, меню и HUD — из выбранной основы.','Gameplay from the reward; menus and HUD from your chosen base.'))
+                check('optimize_skins',mix)
+                ctk.CTkLabel(mix,text=ru('Основа интерфейса','Interface base'),text_color=palette['muted']).pack(anchor='w')
+                choose('','interface_skin',choices,parent=mix)
                 check('hide_failed')
         else:
             choose(ru('Тема оформления','Theme'),'theme',{v['ru' if variables['language'].get()=='Русский' else 'en']:k for k,v in THEMES.items()},callback=lambda _:render())
@@ -184,22 +181,19 @@ def open_setup(self):
                 f"Game: {variables['osu_path'].get()}\nServer: {server} · Slot: {variables['slot'].get()}\nDifficulty: {tr(variables['difficulty'].get(),variables['language'].get())}"))
             block(ru('Что дальше?','What next?'),ru(
                 'Нажми «Готово», затем «Начать сессию» в главном окне. После первой награды выбери в osu! скин «! osu!gacha — Текущий скин». Для обновления нажимай Ctrl+Shift+Alt+S. После игры заверши сессию в приложении.',
-                'Click Finish, then Start session in the main window. After your first reward, select “! osu!gacha — Текущий скин” in osu!. Press Ctrl+Shift+Alt+S to reload it. End the session in the app when done.'))
+                'Click Finish, then Start session in the main window. After your first reward, select “! osu!gacha — Current skin” in osu!. Press Ctrl+Shift+Alt+S to reload it. End the session in the app when done.'))
         def advance():
             if step[0]==1 and not (Path(variables['osu_path'].get())/'osu!.exe').is_file():
                 messagebox.showerror('osu!',ru('Выберите папку с osu!.exe.','Select the folder containing osu!.exe.'),parent=window)
                 return
-            if step[0]==1 and variables['skin_source'].get()=='zip' and not Path(variables['skin_archive'].get()).is_file():
-                messagebox.showerror('osu!',ru('Выберите существующий ZIP.','Select an existing ZIP.'),parent=window)
-                return
             if step[0]==1 and draft.get('tablet_driver_enabled'):
                 driver=Path(variables['tablet_driver_path'].get())
-                if not driver.is_file() or driver.suffix.lower()!='.exe':
-                    messagebox.showerror('osu!',ru('Выбери .exe драйвера планшета или выключи его запуск с сессией.','Choose a tablet driver .exe or disable starting it with the session.'),parent=window)
+                if not driver.is_file() or (os.name=='nt' and driver.suffix.lower()!='.exe') or (os.name!='nt' and driver.suffix.lower()!='.exe' and not os.access(driver,os.X_OK)):
+                    messagebox.showerror('osu!',ru('Выбери исполняемую программу драйвера планшета или выключи его запуск с сессией.','Choose an executable tablet driver or disable starting it with the session.'),parent=window)
                     return
             if step[0]==2 and variables['server'].get()!='offline':
-                if not variables['user_id'].get().strip().isdigit() or (variables['server'].get()=='bancho' and not variables['api_key'].get().strip()):
-                    messagebox.showerror('osu!',ru('Введите ID и API-ключ для Bancho. Для Gatari нужен только ID.','Enter ID and API key for Bancho; Gatari needs only ID.'),parent=window)
+                if not variables['user_id'].get().strip().isdigit() or (variables['server'].get()=='bancho' and not has_bancho_auth(dict(draft,user_id=variables['user_id'].get()))):
+                    messagebox.showerror('osu!',ru('Войдите через osu! для Bancho. Для Gatari нужен только ID.','Sign in through osu! for Bancho; Gatari needs only ID.'),parent=window)
                     return
             limits={1:(),2:('offline_total_pp',),3:('interval',),4:('rofl_chance',)}
             ranges={'interval':(1,300),'offline_total_pp':(0,100000),'rofl_chance':(0,100),'rofl_pp':(0,100000)}

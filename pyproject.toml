@@ -4,23 +4,28 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skin-gacha"
-version = "1.0.0"
+version = "0.5.0"
+requires-python = ">=3.12"
 description = "Skin Gacha for osu!"
 dependencies = [
-    "customtkinter",
-    "requests",
-    "pillow",
-    "beautifulsoup4",
-    "rosu-pp-py",
-    "pygame-ce"
+    "customtkinter>=5.2.2,<7",
+    "requests[socks]>=2.31,<3",
+    "Pillow>=10,<13",
+    "beautifulsoup4>=4.12,<5",
+    "rosu-pp-py>=4.0.2,<5",
+    "pygame-ce>=2.5,<3",
+    "mutagen>=1.47,<2",
+    "keyring>=25.6,<26; sys_platform == 'linux'"
 ]
 
 [project.scripts]
-skin-gacha = "src.main:main"
+skin-gacha = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
 
 [tool.setuptools.packages.find]
-include = ["modules*"]
-exclude = ["assets*"]
+include = ["modules*", "assets*"]
 
-[tool.poetry.dependencies]
-python = "^3.13"
+[tool.setuptools.package-data]
+assets = ["*"]

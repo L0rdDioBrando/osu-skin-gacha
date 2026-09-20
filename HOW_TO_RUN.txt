@@ -1,0 +1,15 @@
+osu!gacha v0.5.0
+
+Русский
+1. Распакуйте Windows-архив целиком.
+2. Откройте osu!gacha.exe. Python не нужен.
+3. В Bancho нажмите «Войти через osu!», подтвердите Authorise и вернитесь в программу.
+Не удаляйте папку _internal рядом с exe.
+Для исходников: run_skin_gacha.cmd автоматически подготавливает Python и библиотеки.
+
+English
+1. Extract the complete Windows archive.
+2. Open osu!gacha.exe. Python is not required.
+3. For Bancho, click Sign in through osu!, approve access, then return to the app.
+Keep the _internal folder beside the executable.
+For source distributions: run_skin_gacha.cmd prepares Python and dependencies.

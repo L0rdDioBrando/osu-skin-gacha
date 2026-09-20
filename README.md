@@ -1,135 +1,73 @@
-# osu!skingacha
+# osu!gacha v0.5.0 · Connected
 
-osu!skingacha - это программа для выбора рандомного скина в osu!stable
+Играй в osu!stable, получай скины за результаты и сравнивай игру с разными скинами.
 
-# Скачивание
-Windows/Linux:
-- Скачайте [здесь](https://github.com/DimEdrol-prog/osu-skin-gacha/releases/latest) .exe или .AppImage файл и запустите
+## Windows: запуск
 
-# Сборка
-Windows:
-- Установите git и python:
-  ```
-  winget install --id Git.Git -e --source winget
-  winget install Python.Python.3
-  ```
+1. Скачайте Windows ZIP из https://github.com/DimEdrol-prog/osu-skin-gacha/releases.
+2. Распакуйте **весь** архив и откройте `osu!gacha.exe`. Python устанавливать не нужно; `_internal` должен оставаться рядом с exe.
+3. Выберите Bancho → «Войти через osu!» → подтвердите вход на официальном сайте. Ручной API-ключ не нужен.
+4. Для Gatari укажите ID Gatari; также доступен офлайн-режим.
 
-- Склонируйте репозиторий и перейдите в него:
-  ```
-  git clone https://github.com/DimEdrol-prog/osu-skin-gacha.git
-  cd osu-skin-gacha
-  ```
+Исходники запускаются через `run_skin_gacha.cmd` или `python main.py` после установки `requirements.txt`.
 
-- Установите зависимости:
-  ```
-  pip install -r requirements.txt
-  ```
+## Разработка и сборка
 
-- Соберите:
-  ```
-  pyinstaller --hidden-import=customtkinter --hidden-import=requests --hidden-import=Pillow --hidden-import=beautifulsoup4 --hidden-import=rosu-pp-py --hidden-import=pygame-ce --onefile main.py
-  ```
+Рабочая копия — этот репозиторий. Код находится в `modules/`, ресурсы и каталог Drive — в `assets/`.
 
-- Запустите:
-  ```
-  dist/main
-  ```
-
-Linux дистрибутивы:
-- Debian/Ubuntu:
-  ```bash
-  sudo apt update
-  sudo apt install python3 python3-tk python3-pip make
-  ```
-
-- RHEL/Fedora:
-  ```bash
-  sudo dnf update
-  sudo dnf install python3 python3-tkinter python3-pip make
-  ```
-
-- OpenSUSE:
-  ```bash
-  sudo zypper refresh
-  sudo zypper install python3 python3-tk python3-pip make
-  ```
-
-- NixOS:
-  ```bash
-  nix develop # или nix-shell если без flakes
-  ```
-
-- Перейдите в директорию с программой соберите:
-  ```bash
-  make install
-  ```
-
-- Запустите:
-  ```bash
-  ./dist/main
-  ```
-
-# Структура файлов
+```sh
+python -m pip install -r requirements.txt
+python main.py
+python run_tests.py
 ```
-.
-├── assets
-│   ├── gacha-logo.png
-│   └── gacha.ico
-├── docs
-│   ├── ARCHITECTURE.md
-│   └── HOW_TO_RUN.txt
-├── drive_catalog.json
-├── ensure_python.ps1
-├── flake.lock
-├── flake.nix
-├── install_dependencies.cmd
-├── main.py
-├── Makefile
-├── modules
-│   ├── __pycache__
-│   │   ├── gacha_api.cpython-313.pyc
-│   │   ├── gacha_app.cpython-313.pyc
-│   │   ├── gacha_config.cpython-313.pyc
-│   │   ├── gacha_connection.cpython-313.pyc
-│   │   ├── gacha_insights.cpython-313.pyc
-│   │   ├── gacha_previews.cpython-313.pyc
-│   │   ├── gacha_reports.cpython-313.pyc
-│   │   ├── gacha_rules.cpython-313.pyc
-│   │   ├── gacha_settings.cpython-313.pyc
-│   │   ├── gacha_setup.cpython-313.pyc
-│   │   ├── gacha_skin_apply.cpython-313.pyc
-│   │   ├── gacha_skins.cpython-313.pyc
-│   │   ├── gacha_sources.cpython-313.pyc
-│   │   ├── gacha_storage.cpython-313.pyc
-│   │   ├── gacha_updates.cpython-313.pyc
-│   │   ├── gacha_widgets.cpython-313.pyc
-│   │   └── skin_gacha.cpython-313.pyc
-│   ├── gacha_api.py
-│   ├── gacha_app.py
-│   ├── gacha_audio.py
-│   ├── gacha_bootstrap.py
-│   ├── gacha_collection.py
-│   ├── gacha_config.py
-│   ├── gacha_connection.py
-│   ├── gacha_driver.py
-│   ├── gacha_insights.py
-│   ├── gacha_previews.py
-│   ├── gacha_python_probe.py
-│   ├── gacha_reports.py
-│   ├── gacha_rules.py
-│   ├── gacha_settings.py
-│   ├── gacha_setup.py
-│   ├── gacha_skin_apply.py
-│   ├── gacha_skins.py
-│   ├── gacha_sources.py
-│   ├── gacha_storage.py
-│   ├── gacha_team.py
-│   ├── gacha_transfer.py
-│   ├── gacha_updates.py
-│   ├── gacha_widgets.py
-│   └── skin_gacha.py
-├── README.md
-├── requirements.txt
-├── run_skin_gacha.cmd
-└── shell.nix
+
+Тесты интерфейса требуют графическую сессию; наборы запускаются отдельно, чтобы не делить глобальное состояние Tk и аудио. Они используют тестовые данные.
+
+Windows-сборка:
+
+```sh
+python -m pip install pyinstaller
+python build_windows.py
 ```
+
+Результат: `.dist/osu!gacha/` и `osu!gacha_v0.5.0_windows.zip`.
+Архив исходников: `python build_release.py`.
+Тесты Worker: `node --test oauth_worker/test/worker.test.mjs` (современный Node.js).
+
+## Linux / NixOS
+
+Сохранены Makefile, shell.nix, flake.nix и flake.lock, подготовленные участниками проекта.
+`uv.lock` обновлён под зависимости v0.5.0. Python: 3.12 или новее.
+
+```sh
+nix develop
+python main.py
+# либо сборка Nix:
+nix build
+# обычная Linux-сборка в окружении с Python и Tcl/Tk:
+make install
+```
+
+`make install` устанавливает Python-зависимости и создаёт onedir-сборку в `dist/`; AppImage он не создаёт.
+Linux preview сохраняет OAuth-сессию через системный Secret Service. Добавлена ручная сборка AppImage в GitHub Actions: Actions → Linux AppImage → Run workflow. Инструкции и ограничения: [docs/LINUX.md](docs/LINUX.md). Настоящая Linux-проверка на этом Windows-компьютере не выполнялась.
+На Linux пользовательские данные пишутся в `$XDG_DATA_HOME/osu-gacha` (обычно `~/.local/share/osu-gacha`), а не в read-only Nix store. Переменная `OSU_GACHA_DATA_DIR` позволяет явно выбрать каталог данных на любой системе.
+
+## Обновление и данные
+
+Закройте приложение перед заменой сборки. Сохраните настройки, историю, коллекцию и скины; публичные архивы их не содержат. Сохранённый вход привязан к учётной записи Windows — на другом компьютере войдите заново.
+
+Клонирование репозитория не переносит личную историю из предыдущей папки автоматически. Для переноса используйте экспорт/импорт данных приложения. Старую рабочую папку не удаляйте до проверки переноса.
+
+В Git не отправляются личные настройки, `.oauth-session`, история, логи, кэши, окружения и архивы. Публикуйте бинарные сборки в Releases после публикации соответствующих исходников.
+
+## Авторизация
+
+Bancho работает через API v2 и общий Worker с SkillPush. Каждая авторизация создаёт независимую сессию. Client Secret и токены osu! остаются на Worker; desktop хранит только собственную сессию. Исходники сервера и тесты находятся в `oauth_worker/`, инструкция — `OAUTH_SETUP.md`. Для объединения кода переустанавливать или заново публиковать Worker не нужно.
+
+## English
+
+Download the Windows ZIP from Releases, extract it completely and run `osu!gacha.exe`. Keep `_internal` beside the executable. Choose Bancho and sign in through the official osu! website; no Legacy API key is required. Gatari uses its own user ID; offline mode is retained.
+
+For source development install `requirements.txt`, run `python main.py`, then `python run_tests.py`. Build Windows releases with `python build_windows.py` after installing PyInstaller. Linux preview uses Secret Service for persistent OAuth, Wine for optional osu!stable launch, and a manual GitHub Actions AppImage build. Real Linux validation is pending; see docs/LINUX.md. Do not publish an old Linux build as the current version.
+
+Keep personal data when upgrading. Use application export/import when moving from an older working folder. Secrets, sessions, histories and caches must never be committed. See `docs/DEVELOPMENT.md` for the merged layout and release checks.

@@ -184,7 +184,7 @@ def open_preview(parent,entry):
         except OSError: pass
     if picture is None: return
     window = IconWindow(parent)
-    window.title(entry['item']['name'])
+    window.title(entry['item'].get('name') or 'osu! Skin Preview')
     window.geometry(f'{min(1000,parent.winfo_screenwidth()-100)}x{min(680,parent.winfo_screenheight()-120)}')
     canvas = tk.Canvas(window,background='#101014',highlightthickness=0)
     canvas.pack(fill='both',expand=True)
@@ -194,7 +194,6 @@ def open_preview(parent,entry):
         canvas.photo=ImageTk.PhotoImage(shown,master=canvas)
         canvas.delete('all')
         canvas.create_image(canvas.winfo_width()/2,canvas.winfo_height()/2,image=canvas.photo,tags='picture')
-        canvas.create_text(canvas.winfo_width()-24,24,text='×',fill='white',font=('Segoe UI',24),tags='close')
     canvas.bind('<Configure>',draw)
     canvas.bind('<Button-1>',lambda e:window.destroy() if 'picture' not in canvas.gettags('current') else None)
     window.bind('<Escape>',lambda e:window.destroy())

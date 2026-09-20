@@ -48,7 +48,7 @@
     in
     {
       devShells = forEachSupportedSystem (
-        { pkgs }: {
+        { pkgs, venv }: {
           default = pkgs.mkShell {
             packages = with pkgs; [
               python3
@@ -65,8 +65,8 @@
               unset PYTHONPATH
               export TCL_LIBRARY="${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}"
               export TK_LIBRARY="${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
-              python -m venv .venv
-              source .venv/bin/activate
+              export PATH="${venv}/bin:$PATH"
+              export PYTHONPATH="${pkgs.python3Packages.tkinter}/${pkgs.python3.sitePackages}"
             '';
           };
         }
@@ -76,10 +76,12 @@
         { pkgs, venv }: {
           default = pkgs.stdenv.mkDerivation {
             pname = "skin-gacha";
-            version = "1.0.0";
+            version = "0.5.0";
             src = ./.;
             pyproject = true;
             dontBuild = true;
+            dontConfigure = true;
+            dontUseCmakeConfigure = true;
             build-system = with pkgs.python3Packages; [
               setuptools
             ];

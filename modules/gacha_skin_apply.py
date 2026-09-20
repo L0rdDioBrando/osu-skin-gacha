@@ -5,6 +5,7 @@ import shutil
 from modules.gacha_storage import atomic_json
 
 LIVE_NAME = '! osu!gacha — Текущий скин'
+LIVE_NAMES=(LIVE_NAME,'! osu!gacha — Current skin')
 MARKER = '.gacha-live.json'
 OWNER = {'owner':'osu-skin-gacha-live-v1'}
 
@@ -16,26 +17,46 @@ def owned_live(path):
         return False
 
 
-def live_paths(box):
-    paths = [box.skins/(LIVE_NAME+suffix) for suffix in ('','.new','.old')]
+def live_paths(box, name=None):
+    name=name or LIVE_NAMES[getattr(box,'language','Русский')=='English']
+    paths = [box.skins/(name+suffix) for suffix in ('','.new','.old')]
     if any(p.resolve().parent != box.skins.resolve() for p in paths):
         raise ValueError('Live skin path escaped Skins')
     return paths
 
 
 def recover_live(box):
-    live,new,old = live_paths(box)
-    for path in (live,new,old):
-        if path.exists() and not owned_live(path):
-            raise ValueError('Папка текущего скина занята личными файлами: '+str(path))
-    if old.exists() and not live.exists():
-        old.rename(live)
-    for path in (new,old):
-        if path.exists(): shutil.rmtree(path)
+    # Validate both localized names before any move; never replace unowned files.
+    groups=[live_paths(box,name) for name in LIVE_NAMES]
+    for group in groups:
+        for path in group:
+            if path.exists() and not owned_live(path):
+                raise ValueError('Live skin folder contains personal files: '+str(path))
+    for live,new,old in groups:
+        if old.exists() and not live.exists():old.rename(live)
+        for path in (new,old):
+            if path.exists():shutil.rmtree(path)
+    target=live_paths(box)[0]
+    other=next(group[0] for group in groups if group[0]!=target)
+    if other.exists() and not target.exists():other.rename(target)
+
+
+def set_live_language(box,language):
+    acquired=not box.lock_file
+    if acquired:box.acquire()
+    before=getattr(box,'language','Русский')
+    try:
+        box.language=language;recover_live(box)
+        live=live_paths(box)[0]
+        return live.name if live.exists() else None
+    except Exception:
+        box.language=before;raise
+    finally:
+        if acquired:box.release()
 
 
 def is_live_folder(path):
-    return path.name == LIVE_NAME and owned_live(path)
+    return path.name in LIVE_NAMES and owned_live(path)
 
 
 def update_live(box, installed_name):
@@ -123,3 +144,20 @@ def apply_collection(library, ident):
         return copy_live(box, source, name)
     finally:
         if acquired: box.release()
+
+
+def ensure_live(box):
+    """Prepare a selectable default-backed skin without replacing existing assets."""
+    if not box.skins.is_dir():return None
+    acquired=not box.lock_file
+    if acquired:box.acquire()
+    try:
+        recover_live(box)
+        live,new,old=live_paths(box)
+        if not live.exists():
+            new.mkdir();atomic_json(new/MARKER,OWNER)
+            (new/'skin.ini').write_text('[General]\nName: '+live.name+'\nAuthor: osu!gacha\nVersion: latest\n',encoding='utf-8')
+            new.rename(live)
+        return live.name
+    finally:
+        if acquired:box.release()

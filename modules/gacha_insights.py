@@ -93,6 +93,7 @@ def result_card(app,parent,record):
     app.label(details,title,bold=True,wraplength=450,justify='left',anchor='w').pack(fill='x')
     pp='—' if score.get('pp') is None else f"{float(score['pp']):.1f}"
     stats=text(app,f"Комбо: {score.get('maxcombo',0)} · Точность: {accuracy(score):.2f}% · Миссы: {score.get('countmiss',0)}",f"Combo: {score.get('maxcombo',0)} · Accuracy: {accuracy(score):.2f}% · Misses: {score.get('countmiss',0)}")
+    stats=app.score_stats(score,info)
     app.label(details,stats,muted=True,wraplength=450,anchor='w').pack(fill='x',pady=6)
     app.label(details,f"{pp} PP · {mods_string(score.get('enabled_mods'))} · {float(info.get('difficultyrating') or 0):.2f}★",anchor='w').pack(fill='x')
     grade=app.label(card,score.get('rank','?'),size=26,bold=True,width=55);grade.configure(text_color=RANK_COLORS.get(score.get('rank'),app.theme['accent']));grade.pack(side='right',padx=12)
@@ -176,7 +177,14 @@ def open_progress(app):
         ctk.CTkOptionMenu(bar,variable=var,values=list(values),command=redraw,fg_color=app.theme['card'],button_color=app.theme['card'],text_color=app.theme['text'],dropdown_fg_color=app.theme['panel'],dropdown_text_color=app.theme['text']).pack(side='left',padx=(0,10))
     ctk.CTkCheckBox(bar,text=app.t('hide_failed'),variable=hide,command=redraw,fg_color=app.theme['accent'],checkmark_color=app.ink,text_color=app.theme['text']).pack(side='left',padx=8)
     app.button(bar,text(app,'Обновить','Refresh'),redraw,True).pack(side='right')
-    canvas.bind('<Configure>',redraw);redraw()
+    resize_timer=[None]
+    def resize(event):
+        if resize_timer[0]:win.after_cancel(resize_timer[0])
+        resize_timer[0]=win.after(100,redraw)
+    def cancel_resize(event):
+        if event.widget is canvas and resize_timer[0]:win.after_cancel(resize_timer[0])
+    canvas.bind('<Destroy>',cancel_resize)
+    canvas.bind('<Configure>',resize);redraw()
     return win
 
 
@@ -227,9 +235,84 @@ def open_summary(app,session=None):
         item=app.drops.get(drop.get('id'),drop)
         entry=next((v for v in app.catalog.values() if (item.get('source') and v.get('source')==item['source']) or v.get('name')==drop.get('name')),item)
         cache=app.preview_cache;app.submit(app.images,'collection_image',lambda w=image,i=entry,c=cache:(w,c.get(i)))
+        from modules.gacha_previews import open_preview
+        image.configure(cursor='hand2')
+        image.bind('<Button-1>',lambda e,w=image,i=entry,c=cache:open_preview(win,dict(item=i,image=getattr(w,'_preview_pil',None),path=c.path(i))))
         rank=drop.get('rank','?');label=text(app,'Особая','Special') if rank=='special' else rank
         badge=app.label(card,label,bold=True);badge.configure(text_color=RANK_COLORS.get(rank,app.theme['accent']));badge.pack()
         app.label(card,drop.get('name',''),wraplength=205,height=55,bold=True,justify='center').pack(fill='x',padx=8,pady=(0,8))
     if not drops:app.label(body,text(app,'В этой сессии пока нет новых скинов. Каждый следующий скор — новая попытка!','No new skins in this session yet. Every next score is another attempt!'),muted=True,wraplength=720).pack(pady=18)
     if 'drops' not in session:app.label(body,text(app,'В старой сессии список скинов не сохранялся.','Older sessions did not save their skin list.'),muted=True).pack(pady=8)
+    return win
+
+
+def map_records(app,record):
+    ident=str(record['score'].get('beatmap_id') or record['map'].get('beatmap_id') or '')
+    digest=record['score'].get('map_hash') or record['score'].get('beatmap_md5')
+    result=[]
+    for when,row in all_records(app):
+        other=str(row['score'].get('beatmap_id') or row['map'].get('beatmap_id') or '')
+        if (ident not in ('','0') and other==ident) or (digest and digest==(row['score'].get('map_hash') or row['score'].get('beatmap_md5'))):
+            result.append((when,row))
+    if not any(row is record or row==record for _,row in result):result.append((timestamp(record['score'].get('date')),record))
+    return sorted(result,key=lambda row:row[0])
+
+
+def open_map_progress(app,record):
+    win=IconWindow(app);win.title(text(app,'Прогресс карты','Map progress'));win.geometry('900x730');win.minsize(720,550);win.configure(fg_color=app.theme['bg'])
+    info=record['map'];rows=map_records(app,record)
+    app.label(win,info.get('title','')+' ['+info.get('version','')+']',size=22,bold=True,wraplength=840,justify='left').pack(fill='x',padx=22,pady=(18,4))
+    app.label(win,text(app,'Сохранённые попытки этого профиля и слота. Сравнение — с предыдущей попыткой с теми же модами.','Saved attempts in this profile and slot. Deltas compare the previous attempt with the same mods.'),muted=True,wraplength=840).pack(fill='x',padx=22)
+    controls=ctk.CTkFrame(win,fg_color='transparent');controls.pack(fill='x',padx=22,pady=12)
+    metrics={text(app,'Комбо','Combo'):'combo','PP':'pp',text(app,'Точность','Accuracy'):'accuracy',text(app,'Миссы','Misses'):'misses'}
+    metric=tk.StringVar(value=next(iter(metrics)));allmods=text(app,'Все моды','All mods')
+    mod=tk.StringVar(value=mods_string(record['score'].get('enabled_mods')))
+    canvas=tk.Canvas(win,height=230,bg=app.theme['panel'],highlightthickness=0);canvas.pack(fill='x',padx=22)
+    summary=app.label(win,'',muted=True,wraplength=820);summary.pack(fill='x',padx=22,pady=8)
+    table=FastScrollableFrame(win,fg_color=app.theme['bg']);table.pack(fill='both',expand=True,padx=16,pady=(0,16))
+    def value(row,key):
+        score=row['score']
+        if key=='accuracy':return accuracy(score)
+        if key=='pp':return float(score['pp']) if score.get('pp') is not None else None
+        return int(score.get('maxcombo' if key=='combo' else 'countmiss') or 0)
+    def draw(*_):
+        key=metrics[metric.get()];selected=[(when,r) for when,r in rows if mod.get()==allmods or mods_string(r['score'].get('enabled_mods'))==mod.get()]
+        for child in table.winfo_children():child.destroy()
+        previous={};entries=[]
+        for when,row in selected:
+            mode=mods_string(row['score'].get('enabled_mods'));v=value(row,key);old=previous.get(mode)
+            delta=v-old if v is not None and old is not None else None
+            if v is not None:previous[mode]=v
+            entries.append((when,row,v,delta,mode))
+        for when,row,v,delta,mode in reversed(entries):
+            tile=app.panel(table);tile.pack(fill='x',pady=3)
+            date=datetime.fromtimestamp(when).strftime('%d.%m.%Y %H:%M') if when else '—'
+            label=f"{date} · {row['score'].get('rank','?')} · {mode}    "+('—' if v is None else f'{v:.2f}')+('' if delta is None else f'  ({delta:+.2f})')
+            app.label(tile,label,anchor='w',height=32).pack(fill='x',padx=12)
+        points=[(when,v) for when,_,v,_,_ in entries if v is not None]
+        canvas.delete('all');w=max(650,canvas.winfo_width())
+        if not points:summary.configure(text=text(app,'Нет значений для графика','No values to plot'));return
+        low,high=chart_range([v for _,v in points],key);start,end=points[0][0],points[-1][0]
+        for i in range(5):
+            y=190-i*38;canvas.create_line(70,y,w-20,y,fill=app.theme['card']);canvas.create_text(60,y,text=f'{low+(high-low)*i/4:.1f}',anchor='e',fill=app.theme['muted'])
+        coords=[(70+(when-start)/max(1,end-start)*(w-100) if end!=start else w/2,190-(v-low)/max(.001,high-low)*152) for when,v in points]
+        if len(coords)>1:
+            curve=smooth_points(coords);layer=Image.new('RGBA',(w*3,230*3))
+            ImageDraw.Draw(layer).line([(curve[i]*3,curve[i+1]*3) for i in range(0,len(curve),2)],fill=app.theme['accent'],width=7)
+            canvas.curve=ImageTk.PhotoImage(layer.resize((w,230),Image.Resampling.LANCZOS),master=canvas);canvas.create_image(0,0,image=canvas.curve,anchor='nw')
+        for x,y in coords:canvas.create_oval(x-3,y-3,x+3,y+3,fill=app.theme['accent'],outline='')
+        for x,t in ((70,start),(w-20,end)):
+            canvas.create_text(x,213,text=datetime.fromtimestamp(t).strftime('%d.%m.%y') if t else '—',anchor='w' if x==70 else 'e',fill=app.theme['muted'])
+        summary.configure(text=text(app,f'Попыток: {len(selected)} · Мин.: {min(v for _,v in points):.2f} · Макс.: {max(v for _,v in points):.2f} · В таблице: {metric.get()} и изменение.',f'Attempts: {len(selected)} · Min: {min(v for _,v in points):.2f} · Max: {max(v for _,v in points):.2f} · Table: {metric.get()} and delta.'))
+    for variable,choices in ((metric,list(metrics)),(mod,[allmods]+sorted({mods_string(r['score'].get('enabled_mods')) for _,r in rows}))):
+        ctk.CTkOptionMenu(controls,variable=variable,values=choices,command=draw,fg_color=app.theme['card'],button_color=app.theme['card'],text_color=app.theme['text'],dropdown_fg_color=app.theme['panel'],dropdown_text_color=app.theme['text']).pack(side='left',padx=(0,10))
+    # Resize repaints are coalesced; rebuilding a table for every native pixel is unnecessary.
+    pending=[None]
+    def resize(event):
+        if pending[0]:win.after_cancel(pending[0])
+        pending[0]=win.after(100,draw)
+    def cancel_resize(event):
+        if event.widget is canvas and pending[0]:win.after_cancel(pending[0])
+    canvas.bind('<Destroy>',cancel_resize)
+    canvas.bind('<Configure>',resize);draw()
     return win

@@ -2,6 +2,7 @@
 import time
 import customtkinter as ctk
 from modules.gacha_reports import redact
+from modules.gacha_oauth import has_bancho_auth
 
 
 def identity(app):
@@ -23,7 +24,7 @@ def mark(app,error='',ident=None):
 def check(app):
     current=state(app)
     if current['pending'] or app.closing or app.settings['offline']:return
-    if not str(app.settings['user_id']).isdigit() or (app.settings['server']=='bancho' and not app.settings['api_key']):return
+    if not str(app.settings['user_id']).isdigit() or (app.settings['server']=='bancho' and not has_bancho_auth(app.settings)):return
     current['pending']=True;ident=current['identity'];settings=app.settings.copy()
     def work():
         api=None
@@ -39,19 +40,17 @@ def check(app):
 def describe(app,now=None):
     current=state(app);english=app.settings['language']=='English';server='Gatari' if app.settings['server']=='gatari' else 'osu!'
     if app.settings['offline']:return ('Offline · local scores' if english else 'Офлайн · локальные скоры'),'neutral'
+    if app.settings['server']=='bancho' and not has_bancho_auth(app.settings):return ('Sign in through osu! in Settings' if english else 'Войдите через osu! в настройках'),'neutral'
     if not str(app.settings['user_id']).isdigit():return ('Enter your profile ID in Settings' if english else 'Укажите ID профиля в настройках'),'neutral'
-    if app.settings['server']=='bancho' and not app.settings['api_key']:return ('Enter your osu! API key in Settings' if english else 'Укажите API-ключ osu! в настройках'),'neutral'
+    if app.settings['server']=='bancho' and not has_bancho_auth(app.settings):return ('Sign in through osu! in Settings' if english else 'Войдите через osu! в настройках'),'neutral'
     if current['pending']:return ('Checking '+server+'…' if english else 'Проверка '+server+'…'),'neutral'
     error=current['error']
     if error:
         if ' / ' in error:error=error.split(' / ',1)[1 if english else 0]
         return server+' · '+error[:180],'error'
     if current['checked'] is None:return server+(' · not checked yet' if english else ' · ещё не проверено'),'neutral'
-    age=max(0,int((time.monotonic() if now is None else now)-current['checked']))
-    ago=(f'{age} s ago' if english else f'{age} с назад') if age<60 else (f'{age//60} min ago' if english else f'{age//60} мин назад')
-    fresh=age<max(60,app.settings['interval']*3)
-    message=('connected' if english else 'подключён') if fresh else ('no recent check' if english else 'нет свежей проверки')
-    return f'{server} · {message} · '+('checked ' if english else 'проверено ')+ago,'ok' if fresh else 'neutral'
+    return server+(' · connected' if english else ' · подключён'),'ok'
+
 
 
 class ConnectionIndicator(ctk.CTkFrame):
@@ -67,7 +66,7 @@ class ConnectionIndicator(ctk.CTkFrame):
         if not self.winfo_exists():return
         label,kind=describe(self.app);current=state(self.app)
         self.label.configure(text=('● ' if kind=='ok' else '○ ')+label,text_color=self.app.theme['accent'] if kind=='ok' else '#e88a8a' if kind=='error' else self.app.theme['muted'])
-        allowed=not current['pending'] and not self.app.settings['offline'] and str(self.app.settings['user_id']).isdigit() and (self.app.settings['server']=='gatari' or bool(self.app.settings['api_key']))
+        allowed=not current['pending'] and not self.app.settings['offline'] and str(self.app.settings['user_id']).isdigit() and (self.app.settings['server']=='gatari' or has_bancho_auth(self.app.settings))
         self.retry.configure(text='↻ Check again' if self.app.settings['language']=='English' else '↻ Проверить',state='normal' if allowed else 'disabled')
         self.timer=self.after(1000,self.tick)
     def destroy(self):

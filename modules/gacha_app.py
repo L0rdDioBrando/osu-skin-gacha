@@ -1,6 +1,7 @@
 """osu! Skin Gacha: gacha_app."""
 from __future__ import annotations
 import gc
+import os
 import copy
 from datetime import datetime
 import io
@@ -26,6 +27,8 @@ from modules.gacha_storage import atomic_json, SettingsStore, HistoryStore
 from modules.gacha_rules import rank_thresholds, difficulty_key, pp_thresholds, stars_threshold, score_key, accuracy, mods_string, reward_for, dt_reward, score_url, resolve_score_url
 from modules.gacha_skins import SkinLibrary, Sandbox
 from modules.gacha_api import API, Covers
+from modules.gacha_api_v2 import OAuthAPI
+from modules.gacha_oauth import has_bancho_auth, session_manager
 from modules.gacha_widgets import FastScrollableFrame, FastTextbox, Particles, bind_api_paste, apply_window_icon, IconWindow
 from modules.gacha_settings import SETTING_HELP, SettingsWindow
 from modules.gacha_reports import ReportsMixin
@@ -46,13 +49,19 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         gc.disable()
         self.background_tasks = []
         self.shutdown_started = False
-        self.title('osu! Skin Gacha')
+        from modules.gacha_polish import VERSION,CODENAME
+        self.title(f'osu!gacha · {VERSION} {CODENAME}')
         self.after(350,lambda:apply_window_icon(self))
         self.geometry(f'1180x{min(980, max(640, self.winfo_screenheight()-100))}')
         self.minsize(880,640)
         ctk.set_appearance_mode('dark')
         self.store = SettingsStore()
         self.settings = self.store.load()
+        oauth_user=session_manager(self.settings).account()
+        if oauth_user:
+            self.settings['oauth_user']=oauth_user
+            self.settings.setdefault('server_user_ids',{})['bancho']=str(oauth_user['id'])
+            if self.settings['server']=='bancho':self.settings['user_id']=str(oauth_user['id'])
         ctk.set_widget_scaling(int(self.settings.get('ui_scale','100%').rstrip('%'))/100)
         self.comparison_cache = {}
         self.history_store = HistoryStore()
@@ -91,7 +100,7 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             self.after(150,self.open_setup)
         self.protocol('WM_DELETE_WINDOW',self.on_close)
         self.after(40,self.drain_events)
-        self.after(2000,self.collect_garbage)
+        self.after(15000,self.collect_garbage)
         if is_developer(self.settings["api_key"]) and not self.settings["offline"]:
             self.after(2500,self.check_reports)
 
@@ -118,9 +127,11 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             self.animate_value(self.progress,self.progress.get(),value,self.progress.set)
 
     def collect_garbage(self):
-        gc.collect()
+        self._gc_passes=getattr(self,'_gc_passes',0)+1
+        gc.collect(2 if self._gc_passes%8==0 else 1 if self._gc_passes%4==0 else 0)
+        self.background_tasks[:]=[f for f in self.background_tasks if not f.done()]
         if not self.destroyed:
-            self.after(2000,self.collect_garbage)
+            self.after(15000,self.collect_garbage)
 
     def t(self,key,**values):
         return tr(key,self.settings['language'],**values)
@@ -162,7 +173,7 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         """Дозаполняем PP старых карточек в фоне, не повторяя запрос при перерисовке."""
         missing = [r for r in records if r['score'].get('pp') is None and id(r) not in self.enrich_pending]
         settings = self.settings.copy()
-        if not missing or (not settings['offline'] and settings['server']=='bancho' and not settings['api_key']):
+        if not missing or (not settings['offline'] and settings['server']=='bancho' and not has_bancho_auth(settings)):
             return
         self.enrich_pending.update(id(r) for r in missing)
         def enrich():
@@ -246,8 +257,6 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         if self.state_name=='transferring' or (self.applying_skin and key in SettingsWindow.LOCKED): return
         if self.settings.get(key) == value:
             return
-        if key == 'optimize_skins' and value and self.settings['interface_skin'] not in self.base_skins:
-            raise ValueError(self.t('no_base'))
         if key in SettingsWindow.LOCKED and self.state_name != 'idle':
             return
         updated = dict(self.settings,**{key:value})
@@ -261,9 +270,18 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             updated['server_user_ids'] = ids
         if key=='offline' and value and not updated['offline_total_pp'] and self.total_pp is not None:
             updated['offline_total_pp'] = self.total_pp
+        if key=='custom_rewards' and value and not updated.get('custom_rewards_initialized'):
+            from modules.gacha_config import DEFAULTS
+            defaults_unchanged=all(updated[k]==DEFAULTS[k] for k in DEFAULTS if k.startswith('goal_'))
+            if defaults_unchanged and self.total_pp is not None:
+                updated.update({'goal_Medium_'+r:v for r,v in pp_thresholds(self.total_pp).items()})
+                updated['goal_stars']=round(stars_threshold(self.total_pp),2)
+            updated['custom_rewards_initialized']=True
         self.store.save(updated)
         self.settings = updated
-        if key=='ui_scale': ctk.set_widget_scaling(int(value.rstrip('%'))/100)
+        if key=='ui_scale':
+            from modules.gacha_polish import scale_ui
+            scale_ui(self,int(value.rstrip('%'))/100)
         profile_changed = key in ('api_key','user_id','server','offline','slot','offline_username')
         if profile_changed:
             self.persist_history()
@@ -286,6 +304,9 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
                 self.mode_label.configure(text=self.t('difficulty').upper()+' / '+self.t(value).upper())
         if profile_changed or service_changed:
             self.refresh_pool()
+        if key=='language':
+            from modules.gacha_skin_apply import set_live_language
+            self.submit(self.files,'live_language',lambda box=self.sandbox:set_live_language(box,value))
         if key == 'ignore_proxy':
             self.covers.ignore_proxy = value
             self.request_avatar()
@@ -308,8 +329,21 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             session.get('offline',False)==self.settings['offline'] and
             session.get('slot','1')==self.settings['slot'])
 
+    def oauth_changed(self,user):
+        self.settings['api_key']=''
+        self.settings['oauth_user']=dict(user)
+        from modules.gacha_api_v2 import OAuthAPI
+        with OAuthAPI._cache_lock:OAuthAPI._cache.clear()
+        if self.settings['server']!='bancho':
+            self.settings.setdefault('server_user_ids',{})['bancho']=str(user.get('id',''))
+            self.store.save(self.settings)
+            return
+        self.apply_live_setting('user_id',str(user.get('id','')))
+        self.store.save(self.settings)
+        if user:self.handle_profile(dict(user_id=str(user['id']),username=user['username'],pp_raw=user.get('pp',0),avatar_url=user.get('avatar_url','')))
+
     def make_api(self,settings):
-        return OfflineAPI(settings) if settings['offline'] else GatariAPI(settings) if settings['server']=='gatari' else API(settings)
+        return OfflineAPI(settings) if settings['offline'] else GatariAPI(settings) if settings['server']=='gatari' else OAuthAPI(settings)
 
     def open_collection(self):
         if self.collection_window and self.collection_window.winfo_exists():
@@ -341,7 +375,7 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             self.submit(self.files,'data_exported',export_data,path,copy.deepcopy(self.settings),copy.deepcopy(self.history),self.sandbox.pack,include_key,self.sandbox)
 
     def export_favorite(self,ident):
-        if self.state_name != 'idle':
+        if self.state_name not in ('idle','running'):
             self.status_label.configure(text=self.t('export_stop'))
             return
         self.submit(self.files,'exported',self.library.export,ident)
@@ -437,11 +471,11 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             self.submit(self.files,'score_page',resolve_score_url,record['score'].copy(),self.settings['ignore_proxy'])
             return
         settings = self.settings.copy()
-        if not settings['api_key']:
+        if not has_bancho_auth(settings):
             self.status_label.configure(text=self.t('score_missing'))
             return
         def lookup():
-            api = API(settings)
+            api = self.make_api(settings)
             try:
                 score = record['score']
                 for candidate in api.get('get_scores',b=score['beatmap_id'],u=settings['user_id'],type='id',limit=100):
@@ -458,6 +492,7 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             # Уже поставленные в очередь обложки тоже не должны обращаться к сети.
             self.covers.offline = True
         self.sandbox = Sandbox(self.settings['osu_path'],self.settings['skin_pack_path'],lambda m:self.events.put(('log',None,m)),slot=self.settings['slot'])
+        self.sandbox.language=self.settings['language']
         self.sandbox.identity += (self.settings['skin_source'],self.settings['skin_archive'],self.settings['drive_folder'],self.settings['offline'])
         self.library = SkinLibrary(self.sandbox,SkinSources(self.settings,self.sandbox.pack,log=self.sandbox.log))
         identity=self.sandbox.identity
@@ -470,13 +505,21 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         self.pool,self.catalog,self.drops,self.base_skins = {},{},{},[]
         self.covers = Covers(Path(self.settings['osu_path'])/'Songs', self.settings['offline'], self.settings['ignore_proxy'])
         self.state_name = 'recovery' if self.sandbox.recover_needed() else 'idle'
+        if self.state_name=='idle':
+            from modules.gacha_skin_apply import ensure_live
+            self.submit(self.files,'live_prepared',ensure_live,self.sandbox)
 
     def label(self,parent,text,size=13,bold=False,muted=False,**kwargs):
         return ctk.CTkLabel(parent,text=text,font=('Segoe UI',size+2,'bold' if bold else 'normal'),text_color=self.theme['muted' if muted else 'text'],**kwargs)
 
-    def button(self,parent,text,command,secondary=False):
+    def button(self,parent,text,command,secondary=False,tooltip=None):
         hover = blend(self.theme['card' if secondary else 'accent'],'#000000',.08)
-        return ctk.CTkButton(parent,text=text,command=command,height=42,corner_radius=min(self.theme['radius'],14),fg_color=self.theme['card' if secondary else 'accent'],hover_color=hover,text_color=self.theme['text'] if secondary else self.ink,font=('Segoe UI',15,'bold'))
+        button=ctk.CTkButton(parent,text=text,command=command,height=42,corner_radius=min(self.theme['radius'],14),fg_color=self.theme['card' if secondary else 'accent'],hover_color=hover,text_color=self.theme['text'] if secondary else self.ink,font=('Segoe UI',15,'bold'))
+        from modules.gacha_widgets import NavigationTooltip
+        if tooltip is None:
+            tooltip={'open_collection':'collection','open_settings':'settings','open_logs':'logs','report_bug':'report_bug','open_reports':'reports','open_best':'best_scores'}.get(getattr(command,'__name__',''))
+        if tooltip:NavigationTooltip(button,self,tooltip)
+        return button
 
     def panel(self,parent):
         return ctk.CTkFrame(parent,fg_color=self.theme['panel'],corner_radius=self.theme['radius'])
@@ -519,14 +562,14 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         content.pack(fill='both',expand=True)
         content.grid_columnconfigure(1,weight=1)
         content.grid_rowconfigure(0,weight=1)
-        side = self.panel(content)
-        side.grid(row=0,column=0,sticky='ns',padx=(0,18))
-        side.configure(width=235)
-        side.grid_propagate(False)
-        side.grid_columnconfigure(0,weight=1)
-        self.label(side,self.t('account').upper(),muted=True).grid(row=0,column=0,sticky='w',padx=20,pady=(22,2))
+        sidebar=self.panel(content)
+        sidebar.grid(row=0,column=0,sticky='ns',padx=(0,18));sidebar.configure(width=250)
+        sidebar.grid_propagate(False);sidebar.grid_columnconfigure(0,weight=1);sidebar.grid_rowconfigure(0,weight=1)
+        side=FastScrollableFrame(sidebar,fg_color='transparent',scrollbar_button_color=self.theme['card'],width=214)
+        side.grid(row=0,column=0,sticky='nsew',padx=4,pady=(8,0));side.grid_columnconfigure(0,weight=1)
+        self.label(side,self.t('account').upper(),muted=True).grid(row=0,column=0,sticky='w',padx=12,pady=(22,2))
         profile = ctk.CTkFrame(side,fg_color='transparent')
-        profile.grid(row=1,column=0,sticky='ew',padx=20,pady=(4,8))
+        profile.grid(row=1,column=0,sticky='ew',padx=12,pady=(4,8))
         self.avatar_label = self.label(profile,'♪',size=24,width=52,height=52,fg_color=self.theme['card'],corner_radius=12)
         self.avatar_label.pack(side='left',padx=(0,10))
         self.profile_label = self.label(profile,self.username,size=20,bold=True,wraplength=125,justify='left')
@@ -536,21 +579,24 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             widget.bind('<Button-1>',lambda event:self.open_profile())
         self.render_avatar()
         self.pp_label = self.label(side,'— PP',size=18)
-        self.pp_label.grid(row=2,column=0,sticky='w',padx=20,pady=(0,20))
-        self.label(side,self.t('rules').upper(),muted=True).grid(row=3,column=0,sticky='w',padx=20)
-        self.rules_label = self.label(side,'',size=14,justify='left',anchor='w',wraplength=192)
-        self.rules_label.grid(row=4,column=0,sticky='ew',padx=20,pady=10)
-        self.next_label = self.label(side,'',muted=True,wraplength=192,justify='left',anchor='w')
-        self.next_label.grid(row=5,column=0,sticky='ew',padx=20,pady=(10,3))
-        self.progress = ctk.CTkProgressBar(side,progress_color=self.theme['accent'],fg_color=self.theme['card'],width=190,height=6)
-        self.progress.grid(row=6,column=0,padx=20,pady=(0,20))
+        self.pp_label.grid(row=2,column=0,sticky='w',padx=12,pady=(0,20))
+        self.label(side,self.t('rules').upper(),muted=True).grid(row=3,column=0,sticky='w',padx=12)
+        self.rules_label = self.label(side,'',size=14,justify='left',anchor='w',wraplength=180)
+        self.rules_label.grid(row=4,column=0,sticky='ew',padx=12,pady=10)
+        self.next_label = self.label(side,'',muted=True,wraplength=180,justify='left',anchor='w')
+        self.next_label.grid(row=5,column=0,sticky='ew',padx=12,pady=(10,3))
+        self.progress = ctk.CTkProgressBar(side,progress_color=self.theme['accent'],fg_color=self.theme['card'],width=180,height=6)
+        self.progress.grid(row=6,column=0,padx=12,pady=(0,20))
         self.progress.set(0)
-        side.grid_rowconfigure(7,weight=1)
+        side.grid_rowconfigure(7,weight=0)
+        self.button(side,'Настроить награды' if self.settings['language']!='English' else 'Adjust rewards',self.open_reward_settings,True).grid(row=7,column=0,sticky='n',padx=12)
+        from modules.gacha_audio import AudioPlayer
+        if not hasattr(self,'audio_player'):self.audio_player=AudioPlayer(self)
+        self.audio_player.mount(sidebar)
         self.pool_label = self.label(side,'',muted=True)
-        self.pool_label.grid(row=8,column=0,sticky='w',padx=20,pady=8)
+        self.pool_label.grid(row=8,column=0,sticky='w',padx=12,pady=8)
         self.unlock_label = self.label(side,'',size=15,bold=True)
-        self.unlock_label.grid(row=9,column=0,sticky='w',padx=20,pady=(0,16))
-        self.label(side,self.t('coexist_hint' if self.settings.get('keep_personal') else 'hint'),muted=True,wraplength=190,justify='left').grid(row=10,column=0,padx=20,pady=(0,20))
+        self.unlock_label.grid(row=9,column=0,sticky='w',padx=12,pady=(0,16))
         main = ctk.CTkFrame(content,fg_color='transparent')
         main.grid(row=0,column=1,sticky='nsew')
         hero = self.panel(main)
@@ -570,26 +616,40 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         row.pack(fill='x',padx=22,pady=18)
         self.start_button = self.button(row,'',self.toggle)
         self.start_button.pack(side='left')
+        if os.name!='nt':
+            from modules.gacha_skin_stats import confirm_skin_reload
+            self.button(row,'Skin reloaded' if self.settings['language']=='English' else 'Скин обновлён',lambda:confirm_skin_reload(self),True).pack(side='left',padx=4)
         self.retry_button = self.button(row,self.t('retry_drop'),self.retry_drop,True)
         if self.failed_drop:
             self.retry_button.pack(side='right')
         self.button(row,self.t('logs'),self.open_logs,True).pack(side='left',padx=8)
-        support = row
+        support = ctk.CTkFrame(hero,fg_color='transparent')
+        support.pack(in_=row,side='left')
         self.button(support,self.t('report_bug'),self.report_bug,True).pack(side='left',padx=4)
         self.reports_button=self.button(support,self.t('reports'),self.open_reports,True)
         self.reports_button.pack(side='left',padx=4)
-        for button in row.winfo_children():
+        self.button(support,self.t('changelog'),lambda:open_changelog(self),True,tooltip='changelog').pack(side='left',padx=4)
+        for button in row.winfo_children()+support.winfo_children():
             if isinstance(button,ctk.CTkButton):
                 button.configure(width=0,font=('Segoe UI',13,'bold'))
+        layout=[None]
+        def support_layout(event):
+            narrow=event.width<720
+            if layout[0]==narrow:return
+            layout[0]=narrow;support.pack_forget()
+            if narrow:
+                support.pack(in_=hero,after=row,fill='x',padx=22,pady=(0,12));row.pack_configure(pady=(12,6))
+            else:
+                support.pack(in_=row,side='left');row.pack_configure(pady=18)
+        hero.bind('<Configure>',support_layout,add='+')
         self.session = self.panel(main)
         self.session.pack(fill='both',expand=True)
         self.label(self.session,self.t('scores'),size=19,bold=True).pack(anchor='w',padx=20,pady=(16,8))
         score_tools=ctk.CTkFrame(self.session,fg_color='transparent')
         score_tools.pack(fill='x',padx=16,pady=(0,8))
         self.button(score_tools,self.t('best_scores'),self.open_best,True).pack(side='left')
-        self.button(score_tools,self.t('progress_view'),lambda:open_progress(self),True).pack(side='left',padx=8)
-        self.button(score_tools,self.t('summary'),lambda:open_summary(self),True).pack(side='left')
-        self.button(score_tools,self.t('changelog'),lambda:open_changelog(self),True).pack(side='right')
+        self.button(score_tools,self.t('progress_view'),lambda:open_progress(self),True,tooltip='progress_view').pack(side='left',padx=8)
+        self.button(score_tools,self.t('summary'),lambda:open_summary(self),True,tooltip='summary').pack(side='left')
         history_row = ctk.CTkFrame(self.session,fg_color='transparent')
         history_row.pack(fill='x',padx=16,pady=(0,6))
         self.history_menu = ctk.CTkOptionMenu(history_row,values=[self.t('current_session')],command=self.select_history,
@@ -600,8 +660,8 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             text_color=self.theme['text'],fg_color=self.theme['accent'],checkmark_color=self.ink,
             command=lambda:self.apply_live_setting('hide_failed',self.failed_var.get()))
         self.failed_checkbox.pack(side='right',padx=(12,0))
-        self.history_search=self.button(history_row,'⌕',lambda:open_session_search(self),True)
-        self.history_search.configure(width=38)
+        self.history_search=self.button(history_row,'⌕',lambda:open_session_search(self),True,tooltip=('Найти сохранённую сессию.','Find a saved session.'))
+        self.history_search.configure(width=38,height=self.history_menu.cget('height'))
         self.history_menu.pack(side='left',fill='x',expand=True)
         self.update_history_menu()
         self.cards_frame = FastScrollableFrame(self.session,fg_color='transparent',scrollbar_button_color=self.theme['card'])
@@ -614,6 +674,10 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             self.add_card(record)
         self.update_stats()
         self.update_controls()
+
+    def open_reward_settings(self):
+        self.open_settings()
+        self.settings_window.navigate_category('rewards')
 
     def update_controls(self):
         key = {'idle':'start','running':'stop','recovery':'recover','starting':'cancel_start'}.get(self.state_name,'busy')
@@ -632,20 +696,26 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         self.request_record_pp(records)
 
     def update_stats(self,record=None):
-        self.profile_label.configure(text=self.username[:18])
+        self.profile_label.configure(text=self.username)
+        long_name=len(self.username)>12
+        self.avatar_label.pack_configure(side='top' if long_name else 'left',anchor='w')
+        self.profile_label.pack_configure(side='top' if long_name else 'left',anchor='w')
+        self.profile_label.configure(wraplength=180 if long_name else 120)
         self.pp_label.configure(text=('≈ ' if self.settings['offline'] else '')+f'{self.total_pp:,.0f} PP' if self.total_pp is not None else '— PP')
         mode = self.settings['difficulty']
         if mode == 'Hard':
             rules = '\n'.join(f'{r}: ≤ #{v:g}' for r,v in rank_thresholds('Hard',self.settings).items())
-            rules += '\n'+self.t('hard_dt_goal')
-            rules += ('\n\nЛидерборд карты\nБольше 1000 запусков' if self.settings['language']!='English' else '\n\nMap leaderboard\nOver 1000 plays')
+            from modules.gacha_rules import dt_threshold
+            rules += '\n'+self.t('hard_dt_goal').replace('50',str(dt_threshold('Hard',self.settings)))
+            rules += ('\n\nНа карте должно быть более 1000 плэйкаунта' if self.settings['language']!='English' else '\n\nThe map must have over 1000 plays across all players')
             if self.settings['offline']:
                 rules = ('Нужен онлайн-режим для лидербордов карт' if self.settings['language']!='English' else 'Online mode required for map leaderboards')
         elif mode == 'Medium':
             rules = '\n'.join(f'{r:3}     {v}+ PP' for r,v in pp_thresholds(self.total_pp,self.settings).items()) if self.total_pp is not None else self.t('credentials')
         else:
             rules = '\n'.join(f'{r:3}     {v}×' for r,v in rank_thresholds("Fun",self.settings).items())
-            rules += '\n'+self.t('fun_dt_goal')
+            from modules.gacha_rules import dt_threshold
+            rules += '\n'+self.t('fun_dt_goal').replace('750',str(dt_threshold('Fun',self.settings)))
             if self.total_pp is not None:
                 rules += f"\n\n{self.t('stars')}: {stars_threshold(self.total_pp,self.settings):.2f}★"
         self.rules_label.configure(text=rules)
@@ -692,7 +762,7 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             self.total_pp = float(self.settings['offline_total_pp'] or 0)
             self.username = self.settings['offline_username'] or self.t('offline_top')
             self.update_stats()
-        elif (self.settings['api_key'] or self.settings['server']=='gatari') and self.settings['user_id'].isdigit():
+        elif (has_bancho_auth(self.settings) or self.settings['server']=='gatari') and self.settings['user_id'].isdigit():
             settings = self.settings.copy()
             def profile():
                 api = self.make_api(settings)
@@ -730,8 +800,11 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             self.update_controls()
             self.submit(self.files,'stopped',self.sandbox.stop, lambda done,total:self.events.put(('restore_progress',None,(done,total))))
         elif self.state_name == 'idle':
-            if not self.settings['offline'] and ((self.settings['server']=='bancho' and not self.settings['api_key']) or not self.settings['user_id'].isdigit()):
-                messagebox.showerror(self.t('error'),self.t('credentials'),parent=self)
+            if self.settings['optimize_skins'] and self.settings['interface_skin'] not in self.base_skins:
+                self.open_settings();self.settings_window.navigate_category('skins')
+                self.status_label.configure(text=self.t('no_base'));return
+            if not self.settings['offline'] and ((self.settings['server']=='bancho' and not has_bancho_auth(self.settings)) or not self.settings['user_id'].isdigit()):
+                self.open_settings();self.settings_window.navigate_category('account')
                 return
             self.state_name = 'starting'
             if self.settings['offline']:
@@ -809,7 +882,7 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         last_pp = float(user.get('pp_raw') or 0)
         failures = 0
         try:
-            while not stop.wait(min(300,settings['interval']*2**min(failures,4))):
+            while not stop.wait(min(300,max(settings['interval'],getattr(api,'min_poll_interval',1))*2**min(failures,4))):
                 try:
                     # Цельный снимок; изменения настроек видны со следующего опроса.
                     settings = self.settings.copy()
@@ -904,6 +977,8 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         self.request_avatar()
 
     def drain_events(self):
+        from modules.gacha_skin_stats import observe_skin_reload
+        observe_skin_reload(self)
         for _ in range(60):
             try:
                 kind,token,value = self.events.get_nowait()
@@ -926,6 +1001,8 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
                 if widget.winfo_exists() and picture is not None:
                     img=ctk.CTkImage(light_image=picture,dark_image=picture,size=(208,117))
                     widget.configure(image=img,text='');widget._preview_ref=img;widget._preview_pil=picture
+            elif kind=='live_language':
+                if value:self.status_label.configure(text=('Выберите в osu! скин «'+value+'»; затем Ctrl+Shift+Alt+S.' if self.settings['language']!='English' else 'Select “'+value+'” in osu!, then press Ctrl+Shift+Alt+S.'))
             elif kind == 'download_progress':
                 identity,details=value
                 if identity==self.sandbox.identity and self.state_name=='running':
@@ -1050,6 +1127,9 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             elif kind == 'skin_applied':
                 self.applying_skin = False
                 self.applied_skin = value
+                for ident, item in self.library.drops.items():
+                    if ident in self.drops and 'optimize_override' in item:
+                        self.drops[ident]['optimize_override'] = item['optimize_override']
                 self.status_label.configure(text=self.t('skin_imported'))
                 self.render_collection()
             elif kind == 'installed':
@@ -1107,6 +1187,8 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
                     self.log(value)
                     self.status_label.configure(text=str(value))
                 elif kind == 'score':
+                    from modules.gacha_skin_stats import attribute_score
+                    attribute_score(self,value)
                     existing = next((r for r in self.records if r['key'] == value['key']),None)
                     if existing is not None:
                         value["awarded"] = existing.get("awarded", False) or value.get("awarded", False)
@@ -1212,7 +1294,11 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         if not hasattr(self,'audio_player'):
             from modules.gacha_audio import AudioPlayer
             self.audio_player=AudioPlayer(self)
-        self.audio_player.attach(frame,record)
+        tools=ctk.CTkFrame(frame,fg_color=self.theme['panel'],corner_radius=0);tools.pack(fill='x',padx=4,pady=(0,3))
+        self.audio_player.attach(tools,record)
+        from modules.gacha_insights import open_map_progress
+        progress=self.button(tools,'Прогресс' if self.settings['language']!='English' else 'Progress',lambda:open_map_progress(self,record),True)
+        progress.configure(width=94,height=24,font=('Segoe UI',11),bg_color=self.theme['panel']);progress.pack(side='left',padx=2,pady=2)
         return frame
 
     def add_card(self,record):
@@ -1234,6 +1320,7 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         card.pack(**options)
         self.cards.insert(0,card)
         card.grid_columnconfigure(1,weight=1)
+        card.grid_columnconfigure(2,minsize=128)
         cover = self.cover_widget(card,record)
         cover.grid(row=0,column=0,rowspan=3,padx=10,pady=12)
         title = f"{info.get('artist','')} — {info.get('title','')} [{info.get('version','')}]"
@@ -1251,8 +1338,9 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         rank = score.get('rank','?')
         rank_label = self.label(card,{'X':'SS','XH':'SSH'}.get(rank,rank),size=28,bold=True,width=68)
         rank_label.configure(text_color=RANK_COLORS.get(rank,self.theme['accent']) if self.theme['bg'] not in ('#faf1f3','#f2f0e9') else self.theme['accent'])
-        rank_label.grid(row=0,column=2,padx=8,sticky='n',pady=(6,0))
-        self.label(card,self.t("repeat_map") if record.get("repeat_difficulty") else f"{self.t('reward')}: {record['reward']}",size=11,muted=True).grid(row=1,column=2,padx=8,sticky='n')
+        rank_label.grid(row=0,column=2,padx=8,sticky='ne',pady=(6,0))
+        reward_footer=ctk.CTkFrame(card,fg_color='transparent');reward_footer.grid(row=2,column=2,sticky='e',padx=8,pady=(0,8))
+        self.label(reward_footer,self.t('repeat_map') if record.get('repeat_difficulty') else f"{self.t('reward')}: {record['reward']}",size=11,muted=True,anchor='e').pack(side='left',padx=(0,6))
         for widget in [card,*card.winfo_children()]:
             if isinstance(widget,(ctk.CTkFrame,ctk.CTkLabel)):
                 widget.configure(cursor='hand2')
@@ -1260,10 +1348,10 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
                 if ident.isdigit():
                     widget.bind('<Button-1>',lambda event,b=ident:webbrowser.open(f'https://osu.ppy.sh/beatmaps/{b}'))
         if score.get('rank')!='F' and score.get('provider') not in ('offline','gatari'):
-            link = self.button(card,self.t('score_link'),lambda:self.open_score(record),True)
+            link = self.button(reward_footer,self.t('score_link'),lambda:self.open_score(record),True)
             link.configure(height=26)
             link.configure(width=0,font=('Segoe UI',12,'bold'))
-            link.grid(row=2,column=2,sticky='e',padx=10,pady=(0,8))
+            link.pack(side='right')
 
     def score_stats(self,score,info):
         parts = []
@@ -1274,6 +1362,8 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
             if self.settings.get(key,True):
                 value = score.get(field)
                 parts.append(f"{label}: {value if value is not None else '—'}")
+        from modules.music_library import score_timing
+        parts.extend(score_timing(info,score,self.settings))
         return ' · '.join(parts)
 
     def copy_logs(self):

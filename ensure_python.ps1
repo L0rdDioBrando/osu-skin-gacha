@@ -1,4 +1,4 @@
-﻿param([switch]$CheckOnly, [switch]$LibraryOnly, [Parameter(ValueFromRemainingArguments=$true)][string[]]$Options)
+param([switch]$CheckOnly, [switch]$LibraryOnly, [Parameter(ValueFromRemainingArguments=$true)][string[]]$Options)
 $ErrorActionPreference = 'Stop'
 $mode = if ($Options -contains '--install') { '--install' } else { '--run' }
 Set-Location -LiteralPath $PSScriptRoot
@@ -14,7 +14,7 @@ function Test-Python([string]$Path) {
     if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
     # A script file avoids the native-command quote loss in Windows PowerShell 5.1.
     $ErrorActionPreference = 'Continue'
-    $result = & $Path -E (Join-Path $PSScriptRoot 'gacha_python_probe.py') 2>$null
+    $result = & $Path -E (Join-Path $PSScriptRoot 'modules/gacha_python_probe.py') 2>$null
     return ($LASTEXITCODE -eq 0)
 }
 function Find-Python {
@@ -97,7 +97,7 @@ try {
         exit 1
     }
     $pythonPath = Ensure-Python
-    & $pythonPath -E (Join-Path $PSScriptRoot 'gacha_bootstrap.py') $mode
+    & $pythonPath -E (Join-Path $PSScriptRoot 'modules/gacha_bootstrap.py') $mode
     exit $LASTEXITCODE
 } catch {
     Write-Host $_ -ForegroundColor Red

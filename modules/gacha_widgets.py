@@ -7,7 +7,52 @@ import os
 import tkinter as tk
 import customtkinter as ctk
 from PIL import Image, ImageTk
-from modules.gacha_config import BASE
+from modules.gacha_config import BASE, RESOURCES
+
+class NavigationTooltip:
+    """Delayed, nonmodal hints; no repeated timers while the pointer is still."""
+    HINTS = {
+        'collection': ('Коллекция скинов: превью, избранное и применение.', 'Browse skin previews, favorites and apply a skin.'),
+        'settings': ('Настройки приложения, подключения и наград.', 'Configure the app, connections and rewards.'),
+        'logs': ('Журнал работы приложения и ошибок.', 'View application activity and errors.'),
+        'report_bug': ('Отправить сообщение о проблеме в приложении.', 'Report a problem with the application.'),
+        'reports': ('Открыть отзывы и предложения.', 'Open feedback and suggestions.'),
+        'changelog': ('Посмотреть изменения в версиях программы.', 'Read what changed in each release.'),
+        'best_scores': ('Лучшие результаты за все сохранённые сессии.', 'Browse the best scores from all saved sessions.'),
+        'progress_view': ('График и таблица развития результатов.', 'View score progress in a chart and table.'),
+        'summary': ('Время игры, результаты и награды сессии.', 'View session duration, results and rewards.'),
+        'score_link': ('Открыть этот результат на сайте сервера.', 'Open this score on the server website.'),
+    }
+    def __init__(self,widget,app,hint):
+        self.widget,self.app=widget,app
+        self.hint=hint
+        self.timer=self.window=None
+        widget.bind('<Enter>',self.enter,add='+')
+        for event in ('<Leave>','<ButtonPress-1>','<Destroy>'):
+            widget.bind(event,self.hide,add='+')
+    def enter(self,event=None):
+        self.hide()
+        hint=self.HINTS.get(self.hint) if isinstance(self.hint,str) else self.hint
+        if hint:
+            self.text=hint[self.app.settings['language']=='English']
+            self.timer=self.widget.after(550,self.show)
+    def show(self):
+        self.timer=None
+        if not self.widget.winfo_exists() or not self.widget.winfo_ismapped():return
+        window=self.window=tk.Toplevel(self.widget)
+        window.withdraw();window.overrideredirect(True);window.attributes('-topmost',True)
+        tk.Label(window,text=self.text,bg=self.app.theme['card'],fg=self.app.theme['text'],font=('Segoe UI',11),wraplength=300,justify='left',padx=12,pady=8).pack()
+        window.update_idletasks()
+        x=min(self.widget.winfo_rootx(),window.winfo_screenwidth()-window.winfo_reqwidth()-8)
+        y=self.widget.winfo_rooty()+self.widget.winfo_height()+6
+        if y+window.winfo_reqheight()>window.winfo_screenheight():y=self.widget.winfo_rooty()-window.winfo_reqheight()-6
+        window.geometry(f'+{max(0,x)}+{max(0,y)}');window.deiconify()
+    def hide(self,event=None):
+        if self.timer:
+            self.widget.after_cancel(self.timer);self.timer=None
+        if self.window:
+            self.window.destroy();self.window=None
+
 
 class FastScrollableFrame(ctk.CTkScrollableFrame):
     """Оставляем штатную маршрутизацию колеса CTk, удваиваем только шаг Canvas."""
@@ -92,13 +137,13 @@ def enable_paste(root):
 
 
 def apply_window_icon(window):
-    path = BASE/'assets'/'gacha.ico'
+    path = RESOURCES/'assets'/'gacha.ico'
     if path.is_file() and window.winfo_exists():
         try:
             window.iconbitmap(str(path))
             # Передаём Tk полноценные изображения всех размеров, чтобы Windows
             # не растягивала маленький кадр ICO на панели задач при высоком DPI.
-            with Image.open(BASE/'assets'/'gacha-logo.png') as original:
+            with Image.open(RESOURCES/'assets'/'gacha-logo.png') as original:
                 window._gacha_icons = [ImageTk.PhotoImage(original.convert('RGBA').resize((n,n),Image.Resampling.LANCZOS),master=window)
                     for n in (16,20,24,32,40,48,64,96,128,256)]
             window.iconphoto(False,*window._gacha_icons)
@@ -134,4 +179,3 @@ class IconWindow(ctk.CTkToplevel):
         setlong(hwnd,-8,0)
         user32.SetWindowPos.argtypes=[wintypes.HWND,wintypes.HWND,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,wintypes.UINT]
         user32.SetWindowPos(hwnd,None,0,0,0,0,0x37)
-

@@ -117,7 +117,7 @@ class SkinLibrary:
     """Постоянный реестр выдач. Все изменения выполняет один файловый поток."""
     def __init__(self,sandbox,sources=None):
         self.box = sandbox
-        self.path = sandbox.slot_root/'gacha_collection.json'
+        self.path = sandbox.slot_root/'modules.gacha_collection.json'
         self.sources = sources
         self.drops,self.catalog = {},{}
         self.loaded = False
@@ -332,7 +332,7 @@ class SkinLibrary:
         try:
             reset_plan = []
             for root in (self.box.pack,self.box.pack/'slots'/'2',self.box.pack/'slots'/'3'):
-                ledger = root/'gacha_collection.json'
+                ledger = root/'modules.gacha_collection.json'
                 drops = json.loads(ledger.read_text(encoding='utf-8')).get('drops',{}) if ledger.exists() else {}
                 active = (root/'gacha_active').resolve()
                 if active != self.box.pack.resolve()/root.relative_to(self.box.pack)/'gacha_active':
@@ -357,29 +357,34 @@ class SkinLibrary:
             self.box.release()
 
     def export(self,ident):
-        if self.box.recover_needed():
-            raise ValueError('Сначала завершите сессию / End the session first')
-        self.box.acquire()
+        acquired=not self.box.lock_file
+        if acquired:self.box.acquire()
         try:
-            self.load()
-            item = self.drops[ident]
-            source = self.box.active/item['installed_name']
-            if not source.is_dir() or source.parent != self.box.active:
-                raise FileNotFoundError('Выигранный скин не найден / Unlocked skin is missing')
-            previous = self.box.skins/item.get('exported_name','__none__')
-            if previous.is_dir() and item.get('exported_name'):
-                return previous.name
-            dest = self.box.free_name(self.box.skins,item['name'])
+            journal=json.loads(self.box.journal.read_text(encoding='utf-8')) if self.box.journal.exists() else None
+            if journal and journal.get('phase')!='active':raise ValueError('Дождитесь завершения операции / Wait for the operation to finish')
+            self.load();item=self.drops[ident]
+            if not item.get('favorite'):raise ValueError('Сначала добавьте скин в избранное / Favorite the skin first')
+            parent=self.box.skins if journal else self.box.active
+            source=(parent/item['installed_name']).resolve()
+            if not source.is_dir() or source.parent!=parent.resolve():raise FileNotFoundError('Skin files missing')
+            previous=item.get('exported_name','')
+            if previous and Path(previous).name==previous:
+                for folder in (self.box.skins,self.box.backup):
+                    if (folder/previous).is_dir():return previous
+            name=re.sub(r'[\\/:*?"<>|]','_',item['name']).strip(' .') or 'Skin'
+            dest=self.box.free_name(self.box.skins,name)
+            if journal:
+                journal.setdefault('personal_exports',[]).append(dest.name)
+                atomic_json(self.box.journal,journal)
             with tempfile.TemporaryDirectory(prefix='.gacha-export-',dir=self.box.pack) as tmp:
-                stage = Path(tmp)/'skin'
+                stage=Path(tmp)/'skin'
+                if any(not f.resolve().is_relative_to(source) for f in source.rglob('*')):raise ValueError('External skin link')
                 shutil.copytree(source,stage)
                 (stage/'.gacha-origin.json').unlink(missing_ok=True)
                 shutil.move(str(stage),str(dest))
-            item['exported_name'] = dest.name
-            self.save()
-            return dest.name
+            item['exported_name']=dest.name;self.save();return dest.name
         finally:
-            self.box.release()
+            if acquired:self.box.release()
 
 
 class Sandbox:
@@ -524,7 +529,7 @@ class Sandbox:
             reserved = {p.name for p in self.active.iterdir()}
             owned = {new for old,new in data.get('gacha',[])}
             for source in self.skins.iterdir():
-                if is_live_folder(source): continue
+                if is_live_folder(source) or source.name in data.get('personal_exports',[]): continue
                 if data.get('keep_personal') and source.name not in owned:
                     continue
                 name, n = source.name, 1
