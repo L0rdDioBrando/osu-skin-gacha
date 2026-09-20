@@ -76,7 +76,7 @@ class SkinSources:
     def __init__(self, settings, root, manifest=None, log=lambda text: None):
         self.settings, self.root, self.log = settings.copy(), Path(root), log
         self.cache = self.root / 'gacha_cache'
-        self.manifest = manifest or Path(__file__).with_name('drive_catalog.json')
+        self.manifest = manifest or Path(__file__).resolve().parent.parent/'assets'/'drive_catalog.json'
         self.progress = lambda *args: None
         self.known = {}
         if self.manifest.exists():
@@ -176,36 +176,46 @@ class SkinSources:
                 if settings.get('offline'):
                     raise ValueError('Скин не скачан: нужен интернет / Skin not cached: internet required')
                 self.log('Загрузка / Download: '+item['name'])
-                with session_for(settings.get('ignore_proxy')) as session:
-                    url = 'https://drive.usercontent.google.com/download'
-                    params = dict(id=item['drive_id'], export='download', confirm='t')
-                    for attempt in range(2):
-                        with session.get(url, params=params, stream=True, timeout=(8, 35)) as response:
-                            response.raise_for_status()
-                            if 'text/html' in response.headers.get('Content-Type', ''):
-                                soup = BeautifulSoup(response.content, 'html.parser')
-                                form = soup.find('form', id='download-form')
-                                if form is None or attempt:
-                                    raise ValueError('Drive: скачивание недоступно или превышена квота / Download unavailable or quota exceeded')
-                                url = form.get('action', '')
-                                if urlparse(url).hostname not in ('drive.usercontent.google.com', 'drive.google.com'):
-                                    raise ValueError('Unexpected Drive download host')
-                                params = {e['name']: e.get('value', '') for e in form.find_all('input', attrs={'name':True})}
-                                continue
-                            total = int(response.headers.get('Content-Length') or 0)
-                            done, began, notified = 0, time.monotonic(), 0
-                            self.progress(item['name'], 0, total, 0, None)
-                            with tmp.open('wb') as out:
-                                for block in response.iter_content(128*1024):
-                                    out.write(block)
-                                    done += len(block)
-                                    now = time.monotonic()
-                                    if now-notified >= .25:
-                                        speed = done/max(.001, now-began)
-                                        self.progress(item['name'], done, total, speed, max(0,total-done)/speed if total and speed else None)
-                                        notified = now
-                            self.progress(item['name'], done, total, done/max(.001,time.monotonic()-began), 0)
-                            break
+                for retry in range(3):
+                    try:
+                        with session_for(settings.get('ignore_proxy')) as session:
+                            url = 'https://drive.usercontent.google.com/download'
+                            params = dict(id=item['drive_id'], export='download', confirm='t')
+                            for attempt in range(2):
+                                with session.get(url, params=params, stream=True, timeout=(8, 35)) as response:
+                                    response.raise_for_status()
+                                    if 'text/html' in response.headers.get('Content-Type', ''):
+                                        soup = BeautifulSoup(response.content, 'html.parser')
+                                        form = soup.find('form', id='download-form')
+                                        if form is None or attempt:
+                                            raise ValueError('Drive: скачивание недоступно или превышена квота / Download unavailable or quota exceeded')
+                                        url = form.get('action', '')
+                                        if urlparse(url).hostname not in ('drive.usercontent.google.com', 'drive.google.com'):
+                                            raise ValueError('Unexpected Drive download host')
+                                        params = {e['name']: e.get('value', '') for e in form.find_all('input', attrs={'name':True})}
+                                        continue
+                                    total = int(response.headers.get('Content-Length') or 0)
+                                    done, began, notified = 0, time.monotonic(), 0
+                                    self.progress(item['name'], 0, total, 0, None)
+                                    with tmp.open('wb') as out:
+                                        for block in response.iter_content(128*1024):
+                                            out.write(block)
+                                            done += len(block)
+                                            now = time.monotonic()
+                                            if now-notified >= .25:
+                                                speed = done/max(.001, now-began)
+                                                self.progress(item['name'], done, total, speed, max(0,total-done)/speed if total and speed else None)
+                                                notified = now
+                                    if total and done!=total:raise requests.exceptions.ChunkedEncodingError('Incomplete download')
+                                    self.progress(item['name'], done, total, done/max(.001,time.monotonic()-began), 0)
+                                    break
+                        break
+                    except (requests.ConnectionError,requests.Timeout,requests.exceptions.ChunkedEncodingError,requests.HTTPError) as error:
+                        if isinstance(error,requests.HTTPError) and error.response is not None and error.response.status_code not in (408,429,500,502,503,504):raise
+                        if retry==2:
+                            raise requests.ConnectionError('Соединение прервано после 3 попыток. Проверьте сеть/VPN и повторите загрузку награды / Connection interrupted after 3 attempts. Check network/VPN and retry the reward download') from error
+                        self.log(('Connection interrupted; retry ' if settings.get('language')=='English' else 'Соединение прервано; повтор ')+str(retry+2)+'/3: '+item['name'])
+                        time.sleep(1+retry)
             if not zipfile.is_zipfile(tmp):
                 raise ValueError('Загруженный файл не является .osk / Download is not an .osk archive')
             os.replace(tmp, target)
@@ -393,6 +403,8 @@ class LocalMaps:
         if score.get('provider')=='offline':
             enriched['rank'] = game_rank(score, failed)
         info = dict(item or {}, difficultyrating=attrs.stars, max_combo=attrs.max_combo)
+        from modules.music_library import local_timing
+        if info.get('path'):info.update(local_timing(info['path']))
         return enriched, info
 
 
@@ -534,6 +546,8 @@ class GatariAPI:
             try:
                 _, calculated = self.local.calculate(dummy, self.session)
                 info.update(difficultyrating=calculated['difficultyrating'],max_combo=calculated['max_combo'],stars_base=False)
+                for field in ('path','bpm','total_length'):
+                    if calculated.get(field):info[field]=calculated[field]
             except (OSError,ValueError,requests.RequestException):
                 if mods & (2|16|64|256|512):
                     raise ValueError('Не удалось рассчитать ★ с модами / Modded star rating unavailable') from None

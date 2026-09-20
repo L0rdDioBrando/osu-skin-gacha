@@ -1,0 +1,1 @@
+"""osu!gacha application modules."""

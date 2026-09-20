@@ -6,6 +6,8 @@ import customtkinter as ctk
 from modules.gacha_widgets import IconWindow, FastScrollableFrame
 from modules.gacha_config import RANK_COLORS
 from modules.gacha_skin_apply import apply_collection
+from modules.gacha_skin_variants import apply_variant
+from modules.gacha_skin_stats import open_skin_stats,open_skin_comparison
 from modules.gacha_previews import open_preview
 
 
@@ -38,9 +40,9 @@ class CollectionWindow(IconWindow):
         self.query=tk.StringVar(); self.rank=tk.StringVar(value=words(app,'Все ранги','All ranks'))
         self.favorite=tk.BooleanVar(); self.period=tk.StringVar(value=words(app,'За всё время','All time'))
         self.order=tk.StringVar(value=words(app,'Сначала новые','Newest first'))
-        self.timer=None; self.page=0; self.revision=0; self.columns=3; self.resize_timer=None
+        self.variant_choices={};self.timer=None; self.page=0; self.revision=0; self.columns=3; self.resize_timer=None
         app.label(self,app.t('collection'),size=23,bold=True).pack(anchor='w',padx=20,pady=(18,8))
-        app.label(self,words(app,'Примените скин, затем нажмите Ctrl+Shift+Alt+S в osu!. В игре должен быть выбран «! osu!gacha — Текущий скин».','Apply a skin, then press Ctrl+Shift+Alt+S in osu!. Select “! osu!gacha — Текущий скин” in the game.'),muted=True,wraplength=860,justify='left').pack(fill='x',padx=20)
+        app.label(self,words(app,'Примените скин, затем нажмите Ctrl+Shift+Alt+S в osu!. В игре должен быть выбран «! osu!gacha — Текущий скин».','Apply a skin, then press Ctrl+Shift+Alt+S in osu!. Select “! osu!gacha — Current skin” in the game.'),muted=True,wraplength=860,justify='left').pack(fill='x',padx=20)
         app.label(self,words(app,'Поиск по названию','Search by name'),muted=True).pack(anchor='w',padx=20,pady=(8,0))
         bar=ctk.CTkFrame(self,fg_color='transparent'); bar.pack(fill='x',padx=20,pady=12)
         ctk.CTkEntry(bar,textvariable=self.query,placeholder_text=words(app,'Название скина','Skin name')).pack(side='left',fill='x',expand=True,padx=(0,12))
@@ -51,6 +53,7 @@ class CollectionWindow(IconWindow):
         self.rank_options={self.rank.get():'',**{r:r for r in ('SS','S','A','B','C','D','DT')},words(app,'Особая','Special'):'special'}
         for var,values in [(self.rank,list(self.rank_options)),(self.period,list(self.periods)),(self.order,list(self.orders))]:
             ctk.CTkOptionMenu(filters,variable=var,values=values,command=lambda _:self.reset(),fg_color=app.theme['card'],button_color=app.theme['card'],text_color=app.theme['text'],width=175).pack(side='left',padx=(0,8))
+        app.button(self,words(app,'Сравнить скины','Compare skins'),lambda:open_skin_comparison(app),True).pack(anchor='w',padx=20,pady=8)
         self.cleanup=app.button(self,words(app,'Удалить неизбранные','Remove nonfavorites'),self.delete_nonfavorites,True)
         self.count=app.label(self,'',muted=True);self.count.pack(anchor='w',padx=20,pady=8)
         self.body=FastScrollableFrame(self,fg_color=app.theme['bg']);self.body.pack(fill='both',expand=True,padx=12,pady=(0,12))
@@ -99,6 +102,15 @@ class CollectionWindow(IconWindow):
             apply=app.button(card,words(app,'Применить','Apply'),lambda i=ident:self.apply(i))
             apply.pack(fill='x',padx=8,pady=8)
             if app.state_name not in ('idle','running') or app.applying_skin: apply.configure(state='disabled')
+            mode=tk.BooleanVar(value=self.variant_choices.get(ident,item.get('optimize_override',False)))
+            original=tk.BooleanVar(value=not mode.get())
+            def change_mode(i=ident,m=mode,o=original,from_original=False):
+                if from_original:m.set(not o.get())
+                else:o.set(not m.get())
+                self.variant_choices[i]=m.get()
+            ctk.CTkCheckBox(card,text=words(app,'Оптимизировать скин','Optimize skin'),variable=mode,command=change_mode,fg_color=app.theme['accent'],text_color=app.theme['text']).pack(anchor='w',padx=10,pady=3)
+            ctk.CTkCheckBox(card,text=words(app,'Оригинальный интерфейс','Original interface'),variable=original,command=lambda fn=change_mode:fn(from_original=True),fg_color=app.theme['accent'],text_color=app.theme['text']).pack(anchor='w',padx=10,pady=3)
+            app.button(card,words(app,'Статистика','Statistics'),lambda i=ident:open_skin_stats(app,i),True).pack(fill='x',padx=8,pady=5)
             picture=app.label(card,words(app,'Нет превью','No preview'),height=117,width=208,muted=True)
             picture.pack(padx=8)
             entry=next((v for v in app.catalog.values() if v.get('source')==item.get('source')),item)
@@ -114,14 +126,14 @@ class CollectionWindow(IconWindow):
             app.label(card,date,size=10,muted=True).pack()
             app.button(card,app.t('unfavorite' if item.get('favorite') else 'favorite'),lambda i=ident,v=not item.get('favorite'):app.submit(app.files,'favorites',app.library.favorite,i,v),True).pack(fill='x',padx=8,pady=6)
             export=app.button(card,app.t('export_skin'),lambda i=ident:app.export_favorite(i),True);export.pack(fill='x',padx=8,pady=(0,8))
-            if app.state_name!='idle' or not item.get('favorite'):export.configure(state='disabled')
+            if app.state_name not in ('idle','running') or not item.get('favorite'):export.configure(state='disabled')
 
     def apply(self, ident):
         app=self.app
         if app.applying_skin or app.state_name not in ('idle','running'): return
         app.applying_skin=True
         app.status_label.configure(text=words(app,'Применение скина…','Applying skin…'))
-        app.submit(app.files,'skin_applied',apply_collection,app.library,ident)
+        app.submit(app.files,'skin_applied',apply_variant,app.library,ident,self.variant_choices.get(ident,app.drops[ident].get('optimize_override',False)),dict(app.settings))
         self.refresh()
 
     def delete_nonfavorites(self):

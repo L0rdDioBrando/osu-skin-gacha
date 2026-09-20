@@ -12,6 +12,9 @@ pkgs.mkShell {
         pillow
         pyinstaller
         beautifulsoup4
+        pygame-ce
+        mutagen
+        pysocks
       ]
     ))
     python3
@@ -23,9 +26,9 @@ pkgs.mkShell {
     gnumake
   ];
   shellHook = ''
-    export TCL_LIBRARY="${pkgs.tcl}/lib/tcl8.6"
-    export TK_LIBRARY="${pkgs.tk}/lib/tk8.6"
-    python -m venv .venv                                                                                
+    export TCL_LIBRARY="${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}"
+    export TK_LIBRARY="${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
+    python -m venv --system-site-packages .venv
     source .venv/bin/activate
   '';
 }

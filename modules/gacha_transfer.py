@@ -11,7 +11,7 @@ from modules.gacha_config import DEFAULTS
 from modules.gacha_storage import atomic_json
 
 LOCAL_KEYS={'osu_path','skin_pack_path','tablet_driver_path','skin_archive','interface_skin','setup_complete','osu_launch_enabled','tablet_driver_enabled','optimize_skins'}
-SECRET_KEYS={'api_key','access_token','refresh_token','client_secret','password'}
+SECRET_KEYS={'api_key','access_token','refresh_token','client_secret','password','session','session_token','oauth_session'}
 
 
 def scrub(value, secret=''):
@@ -42,7 +42,7 @@ def _export_data(path, settings, history, pack, include_key=False):
     payload={'format':'osu-gacha-transfer','version':1,'settings':config,'sessions':scrub(list(history.values()),secret),'slots':{}}
     entries=[]
     for slot in ('1','2','3'):
-        root=slot_root(pack,slot);ledger=root/'gacha_collection.json'
+        root=slot_root(pack,slot);ledger=root/'modules.gacha_collection.json'
         if not root.resolve().is_relative_to(pack) or not (root/'gacha_active').resolve().is_relative_to(pack):raise ValueError('External slot folder')
         drops=json.loads(ledger.read_text(encoding='utf-8')).get('drops',{}) if ledger.exists() else {}
         payload['slots'][slot]={}
@@ -130,7 +130,7 @@ def import_data(path, app_settings, history, box, settings_store, history_store)
                 with z.open(entry) as source,dest.open('wb') as target:shutil.copyfileobj(source,target)
             plans=[]
             for slot,drops in data['slots'].items():
-                root=slot_root(box.pack,slot);ledger=root/'gacha_collection.json'
+                root=slot_root(box.pack,slot);ledger=root/'modules.gacha_collection.json'
                 if not root.resolve().is_relative_to(box.pack.resolve()) or not (root/'gacha_active').resolve().is_relative_to(box.pack.resolve()):raise ValueError('External slot folder')
                 current=json.loads(ledger.read_text(encoding='utf-8')).get('drops',{}) if ledger.exists() else {}
                 reserved={p.name.casefold() for p in (root/'gacha_active').iterdir()} if (root/'gacha_active').exists() else set()
@@ -153,7 +153,7 @@ def import_data(path, app_settings, history, box, settings_store, history_store)
             for key in ('skin_source','drive_folder'):updated[key]=app_settings[key]
             for source,dest in plans:
                 dest.parent.mkdir(parents=True,exist_ok=True);shutil.move(str(source),str(dest));created.append(dest)
-            for slot,drops in data['slots'].items():write(slot_root(box.pack,slot)/'gacha_collection.json',{'version':1,'drops':drops})
+            for slot,drops in data['slots'].items():write(slot_root(box.pack,slot)/'modules.gacha_collection.json',{'version':1,'drops':drops})
             merged=dict(history)
             for session in data['sessions']:
                 if session['id'] not in merged:

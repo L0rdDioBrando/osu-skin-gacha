@@ -41,7 +41,7 @@ class SettingsStore:
                     break
             except (OSError, ValueError):
                 continue
-        for key, low, high in (("interval", 1, 300), ("rofl_chance", 0, 100), ("rofl_pp", 0, 100000)):
+        for key, low, high in (("interval", 1, 300), ("rofl_chance", 0, 100), ("rofl_pp", 0, 100000), ("reward_scale", .5, 2)):
             try:
                 value = float(result[key])
                 result[key] = max(low, min(high, value)) if math.isfinite(value) else DEFAULTS[key]

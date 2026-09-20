@@ -1,18 +1,19 @@
 """osu! Skin Gacha: gacha_rules."""
 from __future__ import annotations
+import math
 import requests
 from modules.gacha_config import RANKS, COMBO, TOP
 
 def pp_thresholds(total, settings=None):
     if settings and settings.get("custom_rewards"):
-        return {r:float(settings["goal_Medium_"+r]) for r in RANKS}
-    ss = int(total * 0.063) - 107
-    return {rank: max(0, ss - i * 50) for i, rank in enumerate(RANKS)}
+        return {r:round(float(settings["goal_Medium_"+r])*reward_scale(settings),1) for r in RANKS}
+    ss = round(min(900,max(25,75*(max(0,total)/1000)**.8)))
+    return {rank: round(ss*factor) for rank,factor in zip(RANKS,(1,.88,.76,.64,.52,.40))}
 
 
 def stars_threshold(total, settings=None):
-    if settings and settings.get("custom_rewards"): return float(settings["goal_stars"])
-    return total / 4000 + 3
+    if settings and settings.get("custom_rewards"): return float(settings["goal_stars"])*reward_scale(settings)
+    return min(7.5,max(1,.9+1.67*math.log1p(max(0,total)/750)))
 
 
 def special_chance(settings):
@@ -61,8 +62,8 @@ def reward_for(mode, total, score, stars, position=None, settings=None):
 def dt_reward(mode,total,score,stars,position=None,settings=None):
     if score.get('rank')=='F' or not int(score.get('enabled_mods') or 0) & (64|512):
         return False
-    return (mode == 'Hard' and position is not None and position <= 50 or
-            mode == 'Fun' and int(score.get('maxcombo') or 0) >= 750 and stars >= stars_threshold(total,settings))
+    return (mode == 'Hard' and position is not None and position <= dt_threshold('Hard',settings) or
+            mode == 'Fun' and int(score.get('maxcombo') or 0) >= dt_threshold('Fun',settings) and stars >= stars_threshold(total,settings))
 
 
 def score_url(score):
@@ -108,7 +109,7 @@ def difficulty_key(score):
 
 def rank_thresholds(mode,settings=None):
     if settings and settings.get('custom_rewards'):
-        return {r:float(settings['goal_'+mode+'_'+r]) for r in RANKS}
+        return {r:min(100,max(1,math.floor(float(settings['goal_'+mode+'_'+r])/reward_scale(settings)))) if mode=='Hard' else math.ceil(float(settings['goal_'+mode+'_'+r])*reward_scale(settings)) for r in RANKS}
     return TOP if mode=='Hard' else COMBO
 
 
@@ -128,3 +129,14 @@ def claimed_ranks(records):
 def reward_upgrade(score, rank, claimed):
     key=difficulty_key(score)
     return bool(key and score.get('rank')!='F' and rank_level(rank)>claimed.get(key,0))
+
+
+def reward_scale(settings):
+    try:value=float(settings.get('reward_scale',1))
+    except (ValueError,TypeError):return 1
+    return min(2,max(.5,value)) if math.isfinite(value) else 1
+
+
+def dt_threshold(mode,settings=None):
+    scale=reward_scale(settings) if settings and settings.get('custom_rewards') else 1
+    return max(1,math.floor(50/scale)) if mode=='Hard' else math.ceil(750*scale)

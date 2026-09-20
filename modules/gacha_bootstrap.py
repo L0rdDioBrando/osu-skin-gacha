@@ -6,9 +6,9 @@ import subprocess
 import sys
 import time
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 ENV_PYTHON = ROOT / '.venv' / 'Scripts' / 'python.exe'
-PROBE = 'import tkinter; import customtkinter; import requests; import PIL.Image; import bs4; import pygame.mixer; import rosu_pp_py; assert hasattr(rosu_pp_py, "Beatmap")'
+PROBE = 'import tkinter; import customtkinter; import requests; import socks; import PIL.Image; import bs4; import pygame.mixer; import mutagen; import rosu_pp_py; assert hasattr(rosu_pp_py, "Beatmap")'
 RUNTIME_PROBE = 'import tkinter, venv; r=tkinter.Tk(); r.withdraw(); r.destroy()'
 
 
@@ -83,7 +83,8 @@ def main():
         say('Готово! Теперь запустите run_skin_gacha.cmd.', 'Ready! Start run_skin_gacha.cmd.')
         return 0
     say('Запускаю osu!gacha…', 'Starting osu!gacha…')
-    return subprocess.call([str(ENV_PYTHON), '-E', str(ROOT / 'skin_gacha.py')], cwd=ROOT, env=env)
+    return subprocess.call([str(ENV_PYTHON), '-E', str(ROOT / 'main.py')], cwd=ROOT, env=env)
+
 
 
 if __name__ == '__main__':

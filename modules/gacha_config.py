@@ -1,9 +1,15 @@
 """osu! Skin Gacha: gacha_config."""
 from __future__ import annotations
 from pathlib import Path
+import sys, os
 from modules.gacha_sources import DRIVE_FOLDER
 
-BASE = Path(__file__).resolve().parent
+BASE = Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parent.parent
+RESOURCES = Path(__file__).resolve().parent.parent
+# Installed Linux packages live in a read-only store; user data belongs in XDG_DATA_HOME.
+if os.name != 'nt':
+    BASE = Path(os.environ.get('XDG_DATA_HOME', str(Path.home()/'.local/share')))/'osu-gacha'
+BASE = Path(os.environ.get('OSU_GACHA_DATA_DIR', str(BASE)))
 
 
 DEV_API_KEY_HASH = 'e12fc0e9321297016fde9d93322b58eca741ddb34deeda17322ac6b7c23bfd6e'
@@ -62,7 +68,7 @@ DEFAULTS = dict(api_key="", user_id="", osu_path=r"E:\osu!", skin_pack_path=str(
     setup_complete=False, ui_motion=True, roulette_motion=True, keep_personal=False)
 
 DEFAULTS.update(keep_current_skin=False, ui_scale="100%", custom_rewards=False, show_100=True, show_50=True,
-                show_combo=True, show_accuracy=True, show_misses=True)
+                show_combo=True, show_accuracy=True, show_misses=True, show_length=True, show_bpm=True)
 for rank in RANKS:
     DEFAULTS['goal_Hard_'+rank] = TOP[rank]
     DEFAULTS['goal_Fun_'+rank] = COMBO[rank]
@@ -73,7 +79,7 @@ DEFAULTS['goal_stars'] = 5.0
 TEXT = {
     'sort_pp': ('По PP', 'By PP'),
     'sort_combo': ('По комбо', 'By combo'),
-    'hard_dt_goal': ('DT     топ-50 с DT/NC', 'DT     top 50 with DT/NC'),
+    'hard_dt_goal': ('DT: ≤ #50 с DT/NC', 'DT: ≤ #50 with DT/NC'),
     'reset_confirm': ('Удалить выигранные скины во всех трёх слотах? Личные скины и экспортированные копии сохранятся.', 'Delete unlocked skins in all three slots? Personal skins and exported copies will remain.'),
 
     'browse': ('Выбрать папку / файл', 'Browse'),
@@ -88,10 +94,12 @@ TEXT = {
     'show_50': ('Показывать попадания 50', 'Show 50 hits'),
     'show_combo': ('Показывать комбо', 'Show combo'),
     'show_accuracy': ('Показывать точность', 'Show accuracy'),
+    'show_length': ('Показывать длину карты', 'Show beatmap length'),
+    'show_bpm': ('Показывать BPM карты', 'Show beatmap BPM'),
     'show_misses': ('Показывать миссы', 'Show misses'),
 
     "applying_skin": ("Передаю новый скин в osu!…", "Importing the new skin into osu!…"),
-    "skin_imported": ("Текущий скин готов — нажми Ctrl+Shift+Alt+S в osu! Для автосмены выбери скин «! osu!gacha — Текущий скин».", "Live skin ready — press Ctrl+Shift+Alt+S in osu!"),
+    "skin_imported": ("Текущий скин готов — нажми Ctrl+Shift+Alt+S в osu! Для автосмены выбери скин «! osu!gacha — Текущий скин».", "Live skin ready — press Ctrl+Shift+Alt+S in osu! Select ! osu!gacha — Current skin in the game."),
     "repeat_map": ("Награда за эту сложность уже получена", "This difficulty already gave a reward"),
     "slot": ("Слот прогресса", "Progress slot"),
     "slot_label": ("Слот {n}", "Slot {n}"),
@@ -160,7 +168,7 @@ TEXT = {
     "exclude_heavy": ("Убрать лагающие скины (больше 30 МБ)", "Exclude heavy skins (over 30 MB)"),
     "optimize_skins": ("Оптимизировать скины: геймплей + свой интерфейс", "Mix gameplay with my own interface"),
     "interface_skin": ("Личный скин для меню и HUD", "Personal skin for menus and HUD"),
-    "ignore_proxy": ("Не использовать системный HTTP-прокси (VPN/TUN)", "Ignore system HTTP proxy (VPN/TUN)"),
+    "ignore_proxy": ("Обходить HTTP и SOCKS5 прокси", "Bypass HTTP and SOCKS5 proxies"),
     "collection": ("Избранное", "Favourites"),
     "favorite": ("В избранное", "Favourite"), "unfavorite": ("★ В избранном", "★ Favourite"),
     "export_skin": ("В личные скины", "Copy to personal skins"),
@@ -210,3 +218,5 @@ TEXT.update({
 })
 
 TEXT['offline_top'] = ('Офлайн-профиль', 'Offline profile')
+
+DEFAULTS.update(reward_scale=1.0)

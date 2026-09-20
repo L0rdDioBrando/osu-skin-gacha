@@ -1,12 +1,15 @@
 # Модули osu! Skin Gacha
 
-- `skin_gacha.py` — точка входа и совместимые экспорты для прежних тестов.
+- `main.py` в корне — точка входа; перечисленные ниже модули находятся в `modules/`.
+- `skin_gacha.py` — запуск приложения и совместимые экспорты для тестов.
 - `gacha_app.py` — главное окно, мастер первого запуска, сессии, очередь событий.
 - `gacha_config.py` — значения по умолчанию, переводы, темы, пороги.
 - `gacha_storage.py` — атомарная запись настроек и истории.
 - `gacha_rules.py` — расчёт ранга награды, комбо/pp, моды, ссылки на скоры.
 - `gacha_skins.py` — коллекция, избранное, установка, журнал переноса и восстановление.
-- `gacha_api.py` — Bancho и обложки карт.
+- `gacha_api.py` — совместимый Legacy-клиент и обложки карт.
+- `gacha_api_v2.py` — действующий Bancho API v2 через Worker, адаптер профилей и скоров.
+- `gacha_oauth.py` — браузерный вход и защищённая сессия приложения.
 - `gacha_sources.py` — Drive/ZIP/папки, локальные карты и pp, Offline/Gatari.
 - `gacha_previews.py` — кэш превью Drive, фоновая загрузка и плавная лента рулетки.
 - `gacha_driver.py` — запуск выбранного пользователем драйвера планшета и сворачивание его окна.
@@ -22,7 +25,7 @@
 Режим совместного использования скинов записывается в журнал; восстановление
 читает его, а не текущую галочку. При нём возвращаются только имена из журнала.
 
-Проверки: `python -m unittest test_skin_gacha test_skin_collection test_gacha_sources test_gacha_beta3`.
+Проверки из корня: `python run_tests.py`. Данные пользователя не являются ресурсами пакета; см. `DEVELOPMENT.md`.
 Интерфейс: `python test_skin_gacha_ui.py` (временные данные, без публикаций в GitHub).
 Сборка исходного архива: `python package_beta4.py`. Личные данные исключены
 явным списком файлов; существующие ZIP не перезаписываются.
@@ -68,3 +71,40 @@ Launcher: ensure_python.ps1 discovers compatible x64 Python via local venv, py l
 - CHANGELOG дополнен 78 пунктами по истории переписки; будущие пункты
   добавлять в начало, сохраняя доступ к прошлым разделам.
 - Дополнительная регрессия: test_gacha_music_connection.
+
+
+## beta4 Harmony (2026-09-13)
+- gacha_polish: release names and manual update guidance. Scaling uses Tk
+  idle redraws; native WM_SETREDRAW was removed because it delayed updates.
+- Audio: first direct .osu/set-folder lookup, then database fallback. One
+  worker and stream; mutagen reads duration without decoding entire tracks.
+  Persistent sidebar transport, seek offset, shared volume; card destruction
+  does not stop playback. Cover controls have a solid themed toolbar.
+- Fun uses a capped logarithmic star curve; Medium a capped sublinear PP
+  curve. reward_scale applies only to custom requirements; Hard ranks scale
+  inversely. Fresh custom settings seed from the current profile's defaults.
+- Downloads retry transient errors three times, reset partial files and
+  validate Content-Length plus ZIP signature before atomic replacement.
+- Live skin recovery recognizes both localized marker-owned names. A
+  language change runs in the serial file queue under the existing lock.
+- Map progress compares the same difficulty; per-attempt deltas stay within
+  matching mods. Chart resize rebuilds are debounced.
+- Garbage collections remain on the UI thread: young generation every 15s,
+  generation 1 every minute and full collection every two minutes.
+
+
+### Harmony usability follow-up
+- Player distinguishes paused/stopped/hidden states; only × hides its panel.
+- ensure_live prepares a marker-owned, default-backed skin under the file lock
+  when a valid game folder is configured. Existing rewards remain untouched.
+- Right-click labels opens Copy / Select text. The wizard URL is a read-only
+  Entry with an explicit copy button. Password/API entry behaviour is unchanged.
+- Reward scale is 0.5–2; Hard placement thresholds remain within the API top 100.
+- Score rank badges are right-anchored, independent of score-link presence.
+
+
+
+## v0.4.3 standalone
+- Direct entry: skin_gacha.py. No sibling application imports.
+- gacha_skin_variants.py rebuilds the managed current skin from its original source.
+- gacha_skin_stats.py records confirmed reload transitions and aggregates associated scores.
