@@ -41,7 +41,6 @@ python build_windows.py
 
 ```sh
 nix develop
-python main.py
 # либо сборка Nix:
 nix build
 # обычная Linux-сборка в окружении с Python и Tcl/Tk:
