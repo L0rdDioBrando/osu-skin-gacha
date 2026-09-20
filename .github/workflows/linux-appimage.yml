@@ -1,0 +1,43 @@
+name: Linux AppImage
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build and desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk xvfb dbus-x11 gnome-keyring libfuse2 squashfs-tools desktop-file-utils libasound2 libegl1
+          python -m pip install -r requirements.txt pyinstaller
+      - name: Tests and real system keyring round trip
+        run: |
+          python -m unittest test_linux_support test_repository_layout test_gacha_sources test_skin_stats_variants
+          dbus-run-session -- bash -e -c '
+            printf "ci-test-password\n" | gnome-keyring-daemon --unlock --components=secrets
+            OSU_GACHA_TEST_KEYRING=1 python -m unittest test_linux_keyring_live
+          '
+      - name: Download official packaging tool and build
+        run: |
+          curl --fail --location --retry 3 https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -o "$RUNNER_TEMP/appimagetool"
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          python build_appimage.py --appimagetool "$RUNNER_TEMP/appimagetool"
+      - name: Check the packaged application without FUSE
+        run: |
+          export OSU_GACHA_DATA_DIR="$RUNNER_TEMP/gacha-data"
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a dist/*.AppImage --self-check "$RUNNER_TEMP/self-check.json"
+          python -c 'import json,os; d=json.load(open(os.environ["RUNNER_TEMP"]+"/self-check.json")); assert d["ok"] and d["assets"] and d["frozen"],d'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: osu-gacha-linux-x86_64-preview
+          path: |
+            dist/*.AppImage
+            dist/*.sha256
+          if-no-files-found: error

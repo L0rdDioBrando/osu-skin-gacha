@@ -15,6 +15,8 @@ pkgs.mkShell {
         pygame-ce
         mutagen
         pysocks
+        keyring
+        secretstorage
       ]
     ))
     python3

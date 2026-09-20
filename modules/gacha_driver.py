@@ -4,8 +4,24 @@ from pathlib import Path
 import subprocess
 import threading
 import time
+import shutil
+
+def executable_args(path):
+    if os.name != 'nt' and path.suffix.lower()=='.exe':
+        wine=shutil.which('wine')
+        if not wine:raise ValueError('Для запуска osu!stable нужен Wine / Install Wine to launch osu!stable')
+        return [wine,str(path)]
+    return [str(path)]
 
 _processes = {}
+
+def external_environment():
+    env=os.environ.copy()
+    if os.name!='nt':
+        original=env.pop('LD_LIBRARY_PATH_ORIG',None)
+        if original is None:env.pop('LD_LIBRARY_PATH',None)
+        else:env['LD_LIBRARY_PATH']=original
+    return env
 
 
 def launch_osu(folder, server="bancho", gatari=True):
@@ -14,25 +30,25 @@ def launch_osu(folder, server="bancho", gatari=True):
     key=(path,server if gatari else "bancho")
     previous = _processes.get(key)
     if previous is not None and previous.poll() is None: return previous
-    args=[str(path)]+(["-devserver","osugatari.ru"] if server=="gatari" and gatari else [])
-    process = subprocess.Popen(args,cwd=str(path.parent))
+    args=executable_args(path)+(["-devserver","osugatari.ru"] if server=="gatari" and gatari else [])
+    process = subprocess.Popen(args,cwd=str(path.parent),env=external_environment())
     _processes[key] = process
     return process
 
 
 def launch_driver(value):
     path = Path(value).expanduser().resolve()
-    if not value or path.suffix.lower() != '.exe' or not path.is_file():
+    if not value or not path.is_file() or (os.name=='nt' and path.suffix.lower()!='.exe') or (os.name!='nt' and path.suffix.lower()!='.exe' and not os.access(path,os.X_OK)):
         raise ValueError('Укажите существующий .exe драйвера планшета / Select a tablet driver executable')
     previous = _processes.get(path)
     if previous is not None and previous.poll() is None: return previous
-    options = {}
+    options = {'env':external_environment()}
     if os.name == 'nt':
         startup = subprocess.STARTUPINFO()
         startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         startup.wShowWindow = 7  # SW_SHOWMINNOACTIVE
         options['startupinfo'] = startup
-    process = subprocess.Popen([str(path)], cwd=str(path.parent), **options)
+    process = subprocess.Popen(executable_args(path), cwd=str(path.parent), **options)
     _processes[path] = process
     if os.name == 'nt':
         threading.Thread(target=_minimize, args=(process,), daemon=True).start()

@@ -21,6 +21,9 @@ def main():
     if len(sys.argv)==3 and sys.argv[1]=='--self-check':
         import json,tkinter,pygame,rosu_pp_py
         from modules.gacha_config import RESOURCES
+        if sys.platform.startswith('linux'):
+            from keyring.backends.SecretService import Keyring
+            import secretstorage
         root=tkinter.Tk();root.withdraw();root.update();root.destroy()
         Path(sys.argv[2]).write_text(json.dumps({'ok':True,'tk':tkinter.TkVersion,'assets':(RESOURCES/'assets/gacha.ico').is_file(),'frozen':bool(getattr(sys,'frozen',False))}),encoding='utf-8')
     else:

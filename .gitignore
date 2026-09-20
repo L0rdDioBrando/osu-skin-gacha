@@ -6,6 +6,7 @@ result/
 .runtime/
 .build-tools/
 .build-native/
+.build-appimage/
 .dist/
 .venv-backup-*/
 *.py[cod]

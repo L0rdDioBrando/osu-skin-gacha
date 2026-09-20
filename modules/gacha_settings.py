@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from modules.gacha_oauth import AuthPanel
 import math
+import os
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
@@ -254,7 +255,7 @@ class SettingsWindow(IconWindow):
                 var.trace_add('write',lambda *args,k=key:self.changed(k,delay=550))
                 if key in ('tablet_driver_path','skin_archive','osu_path','skin_pack_path'):
                     def browse(k=key,v=var):
-                        value = filedialog.askopenfilename(parent=self,initialdir=str(Path(v.get()).parent) if v.get() else None,filetypes=[('EXE','*.exe')] if k=='tablet_driver_path' else [('ZIP','*.zip')]) if k in ('skin_archive','tablet_driver_path') else filedialog.askdirectory(parent=self)
+                        value = filedialog.askopenfilename(parent=self,initialdir=str(Path(v.get()).parent) if v.get() else None,filetypes=[('Application','*.exe' if os.name=='nt' else '*')] if k=='tablet_driver_path' else [('ZIP','*.zip')]) if k in ('skin_archive','tablet_driver_path') else filedialog.askdirectory(parent=self)
                         if value:
                             v.set(value)
                     browse_button = self.app.button(body,self.t('browse'),browse,True,tooltip=('Выбрать файл или папку для этого пункта.','Choose a file or folder for this setting.'))

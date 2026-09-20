@@ -10,6 +10,8 @@ import secrets
 import threading
 import time
 import webbrowser
+import sys
+import subprocess
 import requests
 import customtkinter as ctk
 from modules.gacha_config import BASE
@@ -18,8 +20,27 @@ SERVER='https://osu-gacha-auth.therealdimedrol.workers.dev'
 
 class AuthError(RuntimeError):pass
 
+def open_login_browser(url):
+    if not sys.platform.startswith('linux'):return webbrowser.open(url)
+    from modules.gacha_driver import external_environment
+    try:
+        subprocess.Popen(['xdg-open',url],env=external_environment(),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        return True
+    except OSError:return False
+
 class SessionStore:
     def __init__(self,path=None):self.path=Path(path or BASE/'.oauth-session')
+    def linux_keyring(self):
+        # Explicit backend: never select keyrings.alt/plaintext or environment overrides.
+        try:
+            from keyring.backends.SecretService import Keyring
+            backend=Keyring()
+            if backend.priority <= 0:raise RuntimeError('Unavailable')
+            return backend
+        except Exception:
+            raise AuthError('Разблокируйте системное хранилище паролей (Secret Service / GNOME Keyring / совместимый KWallet) и повторите вход. / Unlock your Secret Service keyring and retry.') from None
+    def keyring_account(self):
+        return hashlib.sha256(str(self.path.resolve()).encode()).hexdigest()
     @staticmethod
     def protect(data,decrypt=False):
         if os.name!='nt':raise AuthError('Защищённое хранение сессии доступно в Windows / Secure session storage requires Windows')
@@ -34,13 +55,32 @@ class SessionStore:
         finally:
             free=ctypes.WinDLL('kernel32').LocalFree;free.argtypes=[ctypes.c_void_p];free.restype=ctypes.c_void_p;free(target.data)
     def load(self):
+        if sys.platform.startswith('linux'):
+            try:
+                value=self.linux_keyring().get_password('osu!gacha',self.keyring_account())
+                data=json.loads(value) if value else {}
+                return data if isinstance(data,dict) else {}
+            except Exception:return {}
         try:return json.loads(self.protect(self.path.read_bytes(),True))
         except (OSError,ValueError,AuthError):return {}
     def save(self,data):
+        if sys.platform.startswith('linux'):
+            try:self.linux_keyring().set_password('osu!gacha',self.keyring_account(),json.dumps(data))
+            except Exception:
+                raise AuthError('Не удалось сохранить вход. Разблокируйте системное хранилище паролей и повторите. / Cannot save login: unlock your system keyring and retry.') from None
+            return
         encrypted=self.protect(json.dumps(data).encode())
         self.path.parent.mkdir(parents=True,exist_ok=True)
         temporary=self.path.with_name(self.path.name+'.tmp');temporary.write_bytes(encrypted);temporary.replace(self.path)
-    def clear(self):self.path.unlink(missing_ok=True)
+    def clear(self):
+        if sys.platform.startswith('linux'):
+            try:
+                backend=self.linux_keyring()
+                if backend.get_password('osu!gacha',self.keyring_account()) is not None:
+                    backend.delete_password('osu!gacha',self.keyring_account())
+            except Exception:
+                raise AuthError('Не удалось удалить сохранённый вход. Разблокируйте хранилище паролей. / Unlock your keyring to remove the saved login.') from None
+        self.path.unlink(missing_ok=True)
 
 class SessionManager:
     def __init__(self,settings,store=None):
@@ -77,7 +117,7 @@ class SessionManager:
         ident=start.get('id','');login_url=start.get('login_url','')
         if len(ident)!=64 or any(c not in '0123456789abcdef' for c in ident) or login_url!=SERVER+'/login?desktop='+ident:raise AuthError('Некорректный адрес входа / Invalid login address')
         if cancel.is_set():raise AuthError('Вход отменён / Login cancelled')
-        if not webbrowser.open(login_url):raise AuthError('Не удалось открыть браузер / Could not open the browser')
+        if not open_login_browser(login_url):raise AuthError('Не удалось открыть браузер / Could not open the browser')
         deadline=time.monotonic()+min(600,int(start.get('expires_in',600)))
         while time.monotonic()<deadline:
             if cancel.wait(3):raise AuthError('Вход отменён / Login cancelled')

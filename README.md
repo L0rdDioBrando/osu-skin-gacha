@@ -49,7 +49,7 @@ make install
 ```
 
 `make install` устанавливает Python-зависимости и создаёт onedir-сборку в `dist/`; AppImage он не создаёт.
-**Ограничение v0.5.0:** защищённое сохранение OAuth-сессии пока использует Windows DPAPI. Полноценный Bancho-вход на Linux требует отдельной доработки. Linux/Nix-сборку после объединения нужно проверить на Linux; наличие файлов сборки не означает, что такая проверка уже пройдена.
+Linux preview сохраняет OAuth-сессию через системный Secret Service. Добавлена ручная сборка AppImage в GitHub Actions: Actions → Linux AppImage → Run workflow. Инструкции и ограничения: [docs/LINUX.md](docs/LINUX.md). Настоящая Linux-проверка на этом Windows-компьютере не выполнялась.
 На Linux пользовательские данные пишутся в `$XDG_DATA_HOME/osu-gacha` (обычно `~/.local/share/osu-gacha`), а не в read-only Nix store. Переменная `OSU_GACHA_DATA_DIR` позволяет явно выбрать каталог данных на любой системе.
 
 ## Обновление и данные
@@ -68,6 +68,6 @@ Bancho работает через API v2 и общий Worker с SkillPush. К�
 
 Download the Windows ZIP from Releases, extract it completely and run `osu!gacha.exe`. Keep `_internal` beside the executable. Choose Bancho and sign in through the official osu! website; no Legacy API key is required. Gatari uses its own user ID; offline mode is retained.
 
-For source development install `requirements.txt`, run `python main.py`, then `python run_tests.py`. Build Windows releases with `python build_windows.py` after installing PyInstaller. Nix and Makefile workflows are retained, but Linux validation is pending and persistent Bancho OAuth currently requires Windows DPAPI. Do not publish an old Linux build as v0.5.0.
+For source development install `requirements.txt`, run `python main.py`, then `python run_tests.py`. Build Windows releases with `python build_windows.py` after installing PyInstaller. Linux preview uses Secret Service for persistent OAuth, Wine for optional osu!stable launch, and a manual GitHub Actions AppImage build. Real Linux validation is pending; see docs/LINUX.md. Do not publish an old Linux build as the current version.
 
 Keep personal data when upgrading. Use application export/import when moving from an older working folder. Secrets, sessions, histories and caches must never be committed. See `docs/DEVELOPMENT.md` for the merged layout and release checks.

@@ -2,6 +2,7 @@ from modules.gacha_oauth import AuthPanel, has_bancho_auth
 """Friendly first-run wizard. Changes stay in a draft until Finish."""
 from pathlib import Path
 import math
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import webbrowser
@@ -125,8 +126,8 @@ def open_setup(self):
         elif step[0]==1:
             game=entry('osu_path','Папка osu!','osu! folder',hint=ru('Выбери папку osu!stable, в которой находится osu!.exe.','Choose the osu!stable folder containing osu!.exe.'))
             browse('osu_path',game);check('osu_launch_enabled',game.master)
-            driver=entry('tablet_driver_path','Программа драйвера графического планшета (.exe)','Graphics tablet driver application (.exe)',hint=ru('Необязательно. Например, OpenTabletDriver. При запуске драйвер сворачивается.','Optional. For example, OpenTabletDriver. The driver starts minimized.'))
-            browse('tablet_driver_path',driver,[('Программа / Application','*.exe')]);check('tablet_driver_enabled',driver.master)
+            driver=entry('tablet_driver_path','Программа драйвера графического планшета','Graphics tablet driver application',hint=ru('Необязательно. Например, OpenTabletDriver. В Windows запускается свёрнутым.','Optional. For example, OpenTabletDriver. Starts minimized on Windows.'))
+            browse('tablet_driver_path',driver,[('Программа / Application','*.exe' if os.name=='nt' else '*')]);check('tablet_driver_enabled',driver.master)
         elif step[0]==2:
             choose(ru('Где ты играешь?','Where do you play?'),'server',
                 {'osu! (Bancho)':'bancho','Gatari':'gatari',ru('Офлайн','Offline'):'offline'},callback=switch_setup_server)
@@ -187,8 +188,8 @@ def open_setup(self):
                 return
             if step[0]==1 and draft.get('tablet_driver_enabled'):
                 driver=Path(variables['tablet_driver_path'].get())
-                if not driver.is_file() or driver.suffix.lower()!='.exe':
-                    messagebox.showerror('osu!',ru('Выбери .exe драйвера планшета или выключи его запуск с сессией.','Choose a tablet driver .exe or disable starting it with the session.'),parent=window)
+                if not driver.is_file() or (os.name=='nt' and driver.suffix.lower()!='.exe') or (os.name!='nt' and driver.suffix.lower()!='.exe' and not os.access(driver,os.X_OK)):
+                    messagebox.showerror('osu!',ru('Выбери исполняемую программу драйвера планшета или выключи его запуск с сессией.','Choose an executable tablet driver or disable starting it with the session.'),parent=window)
                     return
             if step[0]==2 and variables['server'].get()!='offline':
                 if not variables['user_id'].get().strip().isdigit() or (variables['server'].get()=='bancho' and not has_bancho_auth(dict(draft,user_id=variables['user_id'].get()))):

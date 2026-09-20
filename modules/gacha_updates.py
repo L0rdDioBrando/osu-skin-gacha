@@ -6,6 +6,7 @@ from modules.gacha_widgets import IconWindow, FastScrollableFrame
 from modules.gacha_config import blend
 
 CHANGELOG = [('v0.5.0 · Connected',[
+ ('Linux preview: защищённый вход через Secret Service, запуск через Wine и подтверждение смены скина.','Linux preview: Secret Service login storage, Wine launch and skin reload confirmation.'),
  ('Вход в Bancho через сайт osu!: без ручного ID и API-ключа.','Sign in to Bancho through osu!: no manual ID or API key.'),
  ('Защищённая сессия, выход из аккаунта и API v2 через общий Worker с SkillPush.','Protected sessions, logout and API v2 through the shared SkillPush Worker.'),
  ('Готовая Windows-сборка: установка Python не требуется.','Windows build: no Python installation required.')]),

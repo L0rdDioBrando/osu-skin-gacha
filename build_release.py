@@ -8,6 +8,8 @@ def build():
     files+=list((ROOT/'modules').glob('*.py'))
     files+=[ROOT/name for name in ('Makefile','pyproject.toml','uv.lock','flake.nix','flake.lock','shell.nix','.gitignore','.gitattributes')]
     files+=list((ROOT/'docs').glob('*'))
+    files+=list((ROOT/'packaging/linux').glob('*'))
+    files+=list((ROOT/'.github/workflows').glob('*.yml'))
     files+=[ROOT/'oauth_worker'/name for name in ('package.json','pnpm-lock.yaml','pnpm-workspace.yaml','wrangler.jsonc','README.md','src/worker.js','test/worker.test.mjs')]
     files+=list((ROOT/'assets').glob('*'))
     files=[p for p in files if p.is_file()]

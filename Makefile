@@ -1,4 +1,4 @@
-.PHONY: run install deps build source test clean
+.PHONY: run install deps build source test clean appimage
 PYTHON ?= python3
 
 run:
@@ -15,6 +15,9 @@ build:
 
 source:
 	$(PYTHON) build_release.py
+
+appimage:
+	$(PYTHON) build_appimage.py --appimagetool "$(APPIMAGETOOL)"
 
 test:
 	$(PYTHON) run_tests.py

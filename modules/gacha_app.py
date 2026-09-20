@@ -1,6 +1,7 @@
 """osu! Skin Gacha: gacha_app."""
 from __future__ import annotations
 import gc
+import os
 import copy
 from datetime import datetime
 import io
@@ -615,6 +616,9 @@ class SkinGachaApp(ReportsMixin, ctk.CTk):
         row.pack(fill='x',padx=22,pady=18)
         self.start_button = self.button(row,'',self.toggle)
         self.start_button.pack(side='left')
+        if os.name!='nt':
+            from modules.gacha_skin_stats import confirm_skin_reload
+            self.button(row,'Skin reloaded' if self.settings['language']=='English' else 'Скин обновлён',lambda:confirm_skin_reload(self),True).pack(side='left',padx=4)
         self.retry_button = self.button(row,self.t('retry_drop'),self.retry_drop,True)
         if self.failed_drop:
             self.retry_button.pack(side='right')

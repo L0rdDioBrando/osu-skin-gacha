@@ -33,11 +33,25 @@ def observe_skin_reload(app):
     title=ctypes.create_unicode_buffer(512);user32.GetWindowTextW.argtypes=[wintypes.HWND,wintypes.LPWSTR,ctypes.c_int]
     user32.GetWindowTextW(user32.GetForegroundWindow(),title,512)
     if 'osu!' not in title.value.casefold() or any(v in title.value.casefold() for v in ('gacha','musicplayer','skin preview')):return
+    record_skin_reload(app)
+
+def record_skin_reload(app):
+    if app.state_name!='running' or not app.applied_skin:return False
     item=next((v for v in app.drops.values() if v.get('installed_name')==app.applied_skin),None)
     if not item or not app.current_session or not managed_selected(app):return
     entry=dict(at=time.time(),skin_id=item['id'],skin_name=item['name'])
     app.current_session.setdefault('skin_usage',[]).append(entry)
     app.schedule_history()
+    return True
+
+def confirm_skin_reload(app):
+    from tkinter import messagebox
+    en=app.settings['language']=='English'
+    if messagebox.askyesno('osu!gacha',
+        'Select the current osu!gacha skin in osu!, press Ctrl+Shift+Alt+S, then confirm here before playing. Done?' if en else
+        'Выбери текущий скин osu!gacha в osu!, нажми Ctrl+Shift+Alt+S, затем подтверди здесь перед игрой. Готово?',parent=app):
+        if not record_skin_reload(app):
+            messagebox.showinfo('osu!gacha','Start a session and select the current osu!gacha skin first.' if en else 'Сначала начни сессию и выбери текущий скин osu!gacha в игре.',parent=app)
 
 
 def attribute_score(app,record):
