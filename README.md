@@ -52,6 +52,23 @@ make install
 Linux preview сохраняет OAuth-сессию через системный Secret Service. Добавлена ручная сборка AppImage в GitHub Actions: Actions → Linux AppImage → Run workflow. Инструкции и ограничения: [docs/LINUX.md](docs/LINUX.md). Настоящая Linux-проверка на этом Windows-компьютере не выполнялась.
 На Linux пользовательские данные пишутся в `$XDG_DATA_HOME/osu-gacha` (обычно `~/.local/share/osu-gacha`), а не в read-only Nix store. Переменная `OSU_GACHA_DATA_DIR` позволяет явно выбрать каталог данных на любой системе.
 
+### Установка через системный флейк
+
+Добавьте в /etc/nixos/flake.nix:
+```nix
+{
+  inputs = {
+    skin-gacha.url = "github:DimEdrol-prog/osu-skin-gacha";
+  }
+}
+# Остальной флейк
+```
+
+В environment.systemPackages = with pkgs; или home.packages = with pkgs; добавьте:
+```nix
+inputs.skin-gacha.packages.${pkgs.stdenv.hostPlatform.system}.default
+```
+
 ## Обновление и данные
 
 Закройте приложение перед заменой сборки. Сохраните настройки, историю, коллекцию и скины; публичные архивы их не содержат. Сохранённый вход привязан к учётной записи Windows — на другом компьютере войдите заново.
