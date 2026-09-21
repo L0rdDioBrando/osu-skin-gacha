@@ -67,6 +67,8 @@
               export TK_LIBRARY="${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
               export PATH="${venv}/bin:$PATH"
               export PYTHONPATH="${pkgs.python3Packages.tkinter}/${pkgs.python3.sitePackages}"
+              python3 -m venv .venv
+              source .venv/bin/activate
             '';
           };
         }

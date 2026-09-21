@@ -20,7 +20,6 @@ pkgs.mkShell {
       ]
     ))
     python3
-    python3Packages.tkinter
     tk
     tcl
     stdenv.cc.cc.lib
