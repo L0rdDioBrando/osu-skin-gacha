@@ -26,32 +26,19 @@ chmod +x osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
 APPIMAGE_EXTRACT_AND_RUN=1 ./osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
 ```
 
-На NixOS используйте системный `appimage-run` либо сборку проекта через `nix build`. Не копируйте настройки Windows в Nix store. Данные приложения находятся в `$XDG_DATA_HOME/osu-gacha` (обычно `~/.local/share/osu-gacha`), а сессия — в системном хранилище секретов. Старую Windows-сессию переносить не нужно: войдите заново.
-
 osu!stable запускается через `wine`, найденный в PATH. Для отдельного префикса запустите AppImage с нужным `WINEPREFIX`; автоматически угадывать префикс Lutris/Bottles программа не пытается. Можно оставить автозапуск osu! выключенным и запустить игру привычным способом. Папка osu! должна содержать `osu!.exe` и `Skins`.
 
 Драйвер планшета: выберите Linux-программу с правом исполнения или `.exe` для Wine. Автоматическое сворачивание драйвера остаётся функцией Windows.
 
 После смены скина нажмите Ctrl+Shift+Alt+S в osu!, затем **«Скин обновлён»** в osu!gacha **до следующего скора**. Это начинает запись статистики нового скина. Глобальное определение сочетания клавиш в чужом окне на Linux не реализовано (особенно ограничено на Wayland).
 
-## Что проверить Дену
-
-- Запуск AppImage без установленного Python, отображение окна и иконок.
-- Bancho → браузерный вход → возвращение профиля в приложение.
-- Закрыть программу и открыть снова: аккаунт сохраняется; выход удаляет сессию.
-- Заблокированное хранилище: понятная ошибка, вход не сохраняется открытым текстом.
-- Gatari, офлайн-режим, начало/завершение сессии.
-- Получение награды, скачивание скина, обновление в osu! и возвращение личных скинов.
-- Звук, открытие браузера, запуск Wine с нужным префиксом.
-- Статистика после ручного подтверждения смены скина.
-
 ## Локальная сборка на Linux
 
 Python 3.12+, Tcl/Tk, PyInstaller, `desktop-file-validate`, squashfs-tools и официальный appimagetool x86_64. Установите зависимости `requirements.txt`, затем:
 
 ```sh
-python -m pip install -r requirements.txt pyinstaller
-python build_appimage.py --appimagetool /полный/путь/appimagetool
+python -m pip install -r requirements.txt
+python -m PyInstaller --noconfirm --onedir --windowed --name osu-gacha --collect-all customtkinter --collect-all pygame --collect-all rosu_pp_py --collect-all mutagen --add-data "assets:assets" main.py 
 ```
 
 Результат в `dist/`. Команды установки для чистой Ubuntu приведены в `.github/workflows/linux-appimage.yml`. AppImage предназначен для Linux x86_64 с glibc не старее окружения сборки (Ubuntu 22.04); ARM и старые дистрибутивы требуют отдельной сборки.
