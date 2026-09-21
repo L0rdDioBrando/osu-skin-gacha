@@ -24,7 +24,7 @@ Desktop получает только непрозрачную сессию osu!
 
 На Linux сессия приложения сохраняется в Secret Service через явный backend keyring, без автоматического выбора небезопасных файловых хранилищ. Нужен работающий и разблокированный сервис секретов. В Windows сохранён DPAPI. Инструкция сборки AppImage и проверки на Linux: `docs/LINUX.md`.
 
-`python -m unittest test_gacha_oauth test_gacha_oauth_ui` — клиент и окна на тестовых данных.
+`python -m unittest tests.test_gacha_oauth tests.test_gacha_oauth_ui` — клиент и окна на тестовых данных.
 В `oauth_worker`: `node --test test/worker.test.mjs` — сервер и совместимость SkillPush.
 `python build_windows.py` — готовый Windows-архив (нужны PyInstaller и зависимости приложения).
 `python build_release.py` — отдельный архив исходников.

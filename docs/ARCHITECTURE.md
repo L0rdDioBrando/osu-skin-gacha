@@ -25,8 +25,8 @@
 Режим совместного использования скинов записывается в журнал; восстановление
 читает его, а не текущую галочку. При нём возвращаются только имена из журнала.
 
-Проверки из корня: `python run_tests.py`. Данные пользователя не являются ресурсами пакета; см. `DEVELOPMENT.md`.
-Интерфейс: `python test_skin_gacha_ui.py` (временные данные, без публикаций в GitHub).
+Проверки из корня: `python tests/run_tests.py`. Данные пользователя не являются ресурсами пакета; см. `DEVELOPMENT.md`.
+Интерфейс: `python -m tests.test_skin_gacha_ui` (временные данные, без публикаций в GitHub).
 Сборка исходного архива: `python package_beta4.py`. Личные данные исключены
 явным списком файлов; существующие ZIP не перезаписываются.
 
@@ -36,9 +36,9 @@
 - `gacha_collection.py` — адаптивная сетка коллекции, фильтры, ручное применение, асинхронные превью.
 - `gacha_insights.py` — сравнение одинаковых сложностей/модов, дневные агрегаты, график и итоги сессии.
 - `gacha_transfer.py` — архив пользовательских данных всех слотов, очистка секретов, проверка входных путей и откат ошибок записи. Импорт доступен только вне сессии и под блокировкой Sandbox.
-- `test_gacha_features.py` / `test_gacha_features_ui.py` — проверки переноса, сравнений, прогресса загрузки и новых окон на временных данных.
+- `tests/test_gacha_features.py` / `tests/test_gacha_features_ui.py` — проверки переноса, сравнений, прогресса загрузки и новых окон на временных данных.
 
-Launcher: ensure_python.ps1 discovers compatible x64 Python via local venv, py launcher, registry and standard folders. gacha_python_probe.py validates Tcl/Tk without PowerShell native argument quoting. WinGet exit status never replaces the runtime probe; a signed official installer is the fallback. gacha_bootstrap.py repairs dependencies automatically and retains broken venv folders. test_launcher.ps1 tests discovery/WinGet outcomes without installing software; test_gacha_bootstrap.py covers repair and offline-ready startup.
+Launcher: ensure_python.ps1 discovers compatible x64 Python via local venv, py launcher, registry and standard folders. gacha_python_probe.py validates Tcl/Tk without PowerShell native argument quoting. WinGet exit status never replaces the runtime probe; a signed official installer is the fallback. gacha_bootstrap.py repairs dependencies automatically and retains broken venv folders. test_launcher.ps1 tests discovery/WinGet outcomes without installing software; tests/test_gacha_bootstrap.py covers repair and offline-ready startup.
 
 Текущая версия проекта: beta4. Актуальный дистрибутив: osu!gacha_beta4.zip.
 
@@ -54,7 +54,7 @@ Launcher: ensure_python.ps1 discovers compatible x64 Python via local venv, py l
   текущий неактивный слот, проверка всех путей и запрет reparse points.
 - График: диапазон по данным, smoothstep без выбросов, значения дней и их
   изменения, переход к исходным скорам. Итоги включают обложку и превью наград.
-- Регрессии: test_gacha_beta4_iteration + test_gacha_features_ui.
+- Регрессии: tests.test_gacha_beta4_iteration + test_gacha_features_ui.
 
 
 ## beta4 — музыка и навигация

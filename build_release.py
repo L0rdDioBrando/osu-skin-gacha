@@ -6,6 +6,7 @@ NAME='osu!gacha_v0.5.0_source'
 def build():
     files=[p for p in ROOT.iterdir() if p.is_file() and p.suffix in ('.py','.md','.txt','.cmd','.ps1')]
     files+=list((ROOT/'modules').glob('*.py'))
+    files+=list((ROOT/'tests').glob('*.py'))
     files+=[ROOT/name for name in ('Makefile','pyproject.toml','uv.lock','flake.nix','flake.lock','shell.nix','.gitignore','.gitattributes')]
     files+=list((ROOT/'docs').glob('*'))
     files+=list((ROOT/'packaging/linux').glob('*'))

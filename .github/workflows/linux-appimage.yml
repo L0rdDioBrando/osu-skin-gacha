@@ -19,10 +19,10 @@ jobs:
           python -m pip install -r requirements.txt pyinstaller
       - name: Tests and real system keyring round trip
         run: |
-          python -m unittest test_linux_support test_repository_layout test_gacha_sources test_skin_stats_variants
+          python -m unittest tests.test_linux_support tests.test_repository_layout tests.test_gacha_sources tests.test_skin_stats_variants
           dbus-run-session -- bash -e -c '
             printf "ci-test-password\n" | gnome-keyring-daemon --unlock --components=secrets
-            OSU_GACHA_TEST_KEYRING=1 python -m unittest test_linux_keyring_live
+            OSU_GACHA_TEST_KEYRING=1 python -m unittest tests.test_linux_keyring_live
           '
       - name: Download official packaging tool and build
         run: |

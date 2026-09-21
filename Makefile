@@ -20,7 +20,7 @@ appimage:
 	$(PYTHON) build_appimage.py --appimagetool "$(APPIMAGETOOL)"
 
 test:
-	$(PYTHON) run_tests.py
+	$(PYTHON) tests/run_tests.py
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -r {} +

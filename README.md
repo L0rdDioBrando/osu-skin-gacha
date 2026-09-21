@@ -2,88 +2,72 @@
 
 Играй в osu!stable, получай скины за результаты и сравнивай игру с разными скинами.
 
-## Windows: запуск
+## Windows
 
-1. Скачайте Windows ZIP из https://github.com/DimEdrol-prog/osu-skin-gacha/releases.
-2. Распакуйте **весь** архив и откройте `osu!gacha.exe`. Python устанавливать не нужно; `_internal` должен оставаться рядом с exe.
-3. Выберите Bancho → «Войти через osu!» → подтвердите вход на официальном сайте. Ручной API-ключ не нужен.
-4. Для Gatari укажите ID Gatari; также доступен офлайн-режим.
+1. Скачайте Windows ZIP из [Releases](https://github.com/DimEdrol-prog/osu-skin-gacha/releases).
+2. Распакуйте весь архив и откройте `osu!gacha.exe`. Python устанавливать не нужно. Папка `_internal` должна оставаться рядом с exe.
+3. Выберите Bancho → «Войти через osu!» → подтвердите вход на официальном сайте. API-ключ и ручной Bancho ID не нужны.
 
-Исходники запускаются через `run_skin_gacha.cmd` или `python main.py` после установки `requirements.txt`.
+Для Gatari используется ID Gatari; также доступен офлайн-режим.
 
-## Разработка и сборка
+## Linux — готовый AppImage
 
-Рабочая копия — этот репозиторий. Код находится в `modules/`, ресурсы и каталог Drive — в `assets/`.
+Скачайте `.AppImage` из [Releases](https://github.com/DimEdrol-prog/osu-skin-gacha/releases), разрешите запуск файла в его свойствах и откройте его. Собирать программу или устанавливать Python не требуется.
 
-```sh
-python -m pip install -r requirements.txt
-python main.py
-python run_tests.py
-```
-
-Тесты интерфейса требуют графическую сессию; наборы запускаются отдельно, чтобы не делить глобальное состояние Tk и аудио. Они используют тестовые данные.
-
-Windows-сборка:
+Если удобнее через терминал:
 
 ```sh
-python -m pip install pyinstaller
-python build_windows.py
+chmod +x osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
+./osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
 ```
 
-Результат: `.dist/osu!gacha/` и `osu!gacha_v0.5.0_windows.zip`.
-Архив исходников: `python build_release.py`.
-Тесты Worker: `node --test oauth_worker/test/worker.test.mjs` (современный Node.js).
+Для сохранения входа нужно разблокированное системное хранилище паролей с поддержкой Secret Service. osu!stable работает через Wine; можно запускать игру отдельно привычным способом. После смены скина нажмите Ctrl+Shift+Alt+S в игре, затем «Скин обновлён» в программе перед следующим скором.
 
-## Linux / NixOS
+На NixOS готовый AppImage запускается через `appimage-run`. Дополнительные пояснения: [Linux](docs/LINUX.md).
 
-Сохранены Makefile, shell.nix, flake.nix и flake.lock, подготовленные участниками проекта.
-`uv.lock` обновлён под зависимости v0.5.0. Python: 3.12 или новее.
+## NixOS — установка через Flakes
+
+Для Linux x86_64 с включёнными `nix-command` и `flakes`. Установка в профиль пользователя (не запускает программу):
 
 ```sh
-nix develop
-# либо сборка Nix:
-nix build
-# обычная Linux-сборка в окружении с Python и Tcl/Tk:
-make install
+nix profile install github:DimEdrol-prog/osu-skin-gacha#default
 ```
 
-`make install` устанавливает Python-зависимости и создаёт onedir-сборку в `dist/`; AppImage он не создаёт.
-Linux preview сохраняет OAuth-сессию через системный Secret Service. Добавлена ручная сборка AppImage в GitHub Actions: Actions → Linux AppImage → Run workflow. Инструкции и ограничения: [docs/LINUX.md](docs/LINUX.md). Настоящая Linux-проверка на этом Windows-компьютере не выполнялась.
-На Linux пользовательские данные пишутся в `$XDG_DATA_HOME/osu-gacha` (обычно `~/.local/share/osu-gacha`), а не в read-only Nix store. Переменная `OSU_GACHA_DATA_DIR` позволяет явно выбрать каталог данных на любой системе.
+После установки запускать командой:
 
-### Установка через системный флейк
-
-Добавьте в /etc/nixos/flake.nix:
-```nix
-{
-  inputs = {
-    skin-gacha.url = "github:DimEdrol-prog/osu-skin-gacha";
-  }
-}
-# Остальной флейк
+```sh
+skin-gacha
 ```
 
-В environment.systemPackages = with pkgs; или home.packages = with pkgs; добавьте:
-```nix
-inputs.skin-gacha.packages.${pkgs.stdenv.hostPlatform.system}.default
+Либо разовый запуск без добавления в профиль (эта команда запускает программу):
+
+```sh
+nix run github:DimEdrol-prog/osu-skin-gacha#default
 ```
+
+Это альтернативный способ установки: Nix использует исходники и зависимости из flake. Для входа также нужен Secret Service. Проверка AppImage на GitHub не заменяет проверку flake на NixOS.
+
+Документация Nix: [установка в профиль](https://nix.dev/manual/nix/2.18/command-ref/new-cli/nix3-profile-install), [разовый запуск](https://nix.dev/manual/nix/2.33/command-ref/new-cli/nix3-run).
 
 ## Обновление и данные
 
-Закройте приложение перед заменой сборки. Сохраните настройки, историю, коллекцию и скины; публичные архивы их не содержат. Сохранённый вход привязан к учётной записи Windows — на другом компьютере войдите заново.
+Перед обновлением закройте приложение и сохраните настройки, историю, коллекцию и скины. Не удаляйте старую рабочую папку до проверки переноса. Для переноса между компьютерами используйте экспорт/импорт данных и войдите в аккаунт заново.
 
-Клонирование репозитория не переносит личную историю из предыдущей папки автоматически. Для переноса используйте экспорт/импорт данных приложения. Старую рабочую папку не удаляйте до проверки переноса.
+В Windows данные обычно находятся рядом с программой, в Linux — в `$XDG_DATA_HOME/osu-gacha` (обычно `~/.local/share/osu-gacha`). Авторизация хранится отдельно: Windows DPAPI или системное хранилище Linux. Секрет приложения и токены osu! остаются на сервере.
 
-В Git не отправляются личные настройки, `.oauth-session`, история, логи, кэши, окружения и архивы. Публикуйте бинарные сборки в Releases после публикации соответствующих исходников.
+## Разработчикам
 
-## Авторизация
+Исходники: `modules/`; ресурсы: `assets/`; проверки: `tests/`; сервер авторизации: `oauth_worker/`.
 
-Bancho работает через API v2 и общий Worker с SkillPush. Каждая авторизация создаёт независимую сессию. Client Secret и токены osu! остаются на Worker; desktop хранит только собственную сессию. Исходники сервера и тесты находятся в `oauth_worker/`, инструкция — `OAUTH_SETUP.md`. Для объединения кода переустанавливать или заново публиковать Worker не нужно.
+[Разработка и сборка](docs/DEVELOPMENT.md) · [Сборка AppImage и проверка Linux](docs/LINUX.md) · [OAuth](OAUTH_SETUP.md).
+Обычным пользователям эти инструкции сборки не нужны: готовые файлы публикуются в Releases.
 
 ## English
 
-Download the Windows ZIP from Releases, extract it completely and run `osu!gacha.exe`. Keep `_internal` beside the executable. Choose Bancho and sign in through the official osu! website; no Legacy API key is required. Gatari uses its own user ID; offline mode is retained.
+Download the Windows ZIP or Linux AppImage from [Releases](https://github.com/DimEdrol-prog/osu-skin-gacha/releases). Windows: extract everything and run `osu!gacha.exe`, keeping `_internal` beside it. Linux: allow execution of the AppImage and run it. No Python installation or manual build is required.
 
-For source development install `requirements.txt`, run `python main.py`, then `python run_tests.py`. Build Windows releases with `python build_windows.py` after installing PyInstaller. Linux preview uses Secret Service for persistent OAuth, Wine for optional osu!stable launch, and a manual GitHub Actions AppImage build. Real Linux validation is pending; see docs/LINUX.md. Do not publish an old Linux build as the current version.
+Bancho signs in through the official osu! website. Gatari uses its own ID; offline mode is supported. Linux login persistence requires an unlocked Secret Service keyring. Use Wine for osu!stable and confirm skin reloads with the application's “Skin reloaded” button.
 
-Keep personal data when upgrading. Use application export/import when moving from an older working folder. Secrets, sessions, histories and caches must never be committed. See `docs/DEVELOPMENT.md` for the merged layout and release checks.
+NixOS x86_64: `nix profile install github:DimEdrol-prog/osu-skin-gacha#default` installs the program; `skin-gacha` starts it. Alternatively, `nix run github:DimEdrol-prog/osu-skin-gacha#default` builds and starts it without profile installation. Nix commands and flakes must be enabled. Use `appimage-run` for the prebuilt AppImage.
+
+Close the program and retain your personal data when upgrading. Developer-only build and test instructions are linked above.
