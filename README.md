@@ -4,13 +4,13 @@
 
 ## Windows
 
-1. Скачайте Windows ZIP из [Releases](https://github.com/DimEdrol-prog/osu-skin-gacha/releases).
-2. Распакуйте весь архив и откройте `osu!gacha.exe`. Python устанавливать не нужно. Папка `_internal` должна оставаться рядом с exe.
-3. Выберите Bancho → «Войти через osu!» → подтвердите вход на официальном сайте. API-ключ и ручной Bancho ID не нужны.
+- Скачайте Windows ZIP из [Releases](https://github.com/DimEdrol-prog/osu-skin-gacha/releases).
+- Распакуйте весь архив и откройте `osu!gacha.exe`. Python устанавливать не нужно. Папка `_internal` должна оставаться рядом с exe.
+- Выберите Bancho → «Войти через osu!» → подтвердите вход на официальном сайте. API-ключ и ручной Bancho ID не нужны.
 
 Для Gatari используется ID Gatari; также доступен офлайн-режим.
 
-## Linux - готовый AppImage
+## Linux
 
 Скачайте `.AppImage` из [Releases](https://github.com/DimEdrol-prog/osu-skin-gacha/releases), разрешите запуск файла в его свойствах и откройте его.
 
@@ -23,7 +23,7 @@ chmod +x osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
 
 Для сохранения входа нужно разблокированное системное хранилище паролей с поддержкой Secret Service. osu!stable работает через Wine; можно запускать игру отдельно привычным способом. После смены скина нажмите Ctrl+Shift+Alt+S в игре, затем «Скин обновлён» в программе перед следующим скором.
 
-## NixOS - установка через Flakes
+## NixOS
 
 Добавьте в свой /etc/nixos/flake.nix:
 
