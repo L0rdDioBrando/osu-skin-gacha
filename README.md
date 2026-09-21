@@ -10,44 +10,37 @@
 
 Для Gatari используется ID Gatari; также доступен офлайн-режим.
 
-## Linux — готовый AppImage
+## Linux - готовый AppImage
 
-Скачайте `.AppImage` из [Releases](https://github.com/DimEdrol-prog/osu-skin-gacha/releases), разрешите запуск файла в его свойствах и откройте его. Собирать программу или устанавливать Python не требуется.
+Скачайте `.AppImage` из [Releases](https://github.com/DimEdrol-prog/osu-skin-gacha/releases), разрешите запуск файла в его свойствах и откройте его.
 
 Если удобнее через терминал:
 
-```sh
+```bash
 chmod +x osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
 ./osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
 ```
 
 Для сохранения входа нужно разблокированное системное хранилище паролей с поддержкой Secret Service. osu!stable работает через Wine; можно запускать игру отдельно привычным способом. После смены скина нажмите Ctrl+Shift+Alt+S в игре, затем «Скин обновлён» в программе перед следующим скором.
 
-На NixOS готовый AppImage запускается через `appimage-run`. Дополнительные пояснения: [Linux](docs/LINUX.md).
+## NixOS - установка через Flakes
 
-## NixOS — установка через Flakes
+Добавьте в свой /etc/nixos/flake.nix:
 
-Для Linux x86_64 с включёнными `nix-command` и `flakes`. Установка в профиль пользователя (не запускает программу):
-
-```sh
-nix profile install github:DimEdrol-prog/osu-skin-gacha#default
+```nix
+{
+  inputs = {
+    skin-gacha.url = "github:DimEdrol-prog/osu-skin-gacha";
+  };
+  # Остальной flake.nix
+}
 ```
 
-После установки запускать командой:
+Добавьте в environment.systemPackages = with pkgs; или home.packages = with pkgs;:
 
-```sh
-skin-gacha
+```nix
+inputs.skin-gacha.packages.${pkgs.stdenv.hostPlatform.system}.default
 ```
-
-Либо разовый запуск без добавления в профиль (эта команда запускает программу):
-
-```sh
-nix run github:DimEdrol-prog/osu-skin-gacha#default
-```
-
-Это альтернативный способ установки: Nix использует исходники и зависимости из flake. Для входа также нужен Secret Service. Проверка AppImage на GitHub не заменяет проверку flake на NixOS.
-
-Документация Nix: [установка в профиль](https://nix.dev/manual/nix/2.18/command-ref/new-cli/nix3-profile-install), [разовый запуск](https://nix.dev/manual/nix/2.33/command-ref/new-cli/nix3-run).
 
 ## Обновление и данные
 
