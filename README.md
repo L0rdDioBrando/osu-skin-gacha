@@ -21,8 +21,6 @@ chmod +x osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
 ./osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
 ```
 
-Для сохранения входа нужно разблокированное системное хранилище паролей с поддержкой Secret Service. osu!stable работает через Wine; можно запускать игру отдельно привычным способом. После смены скина нажмите Ctrl+Shift+Alt+S в игре, затем «Скин обновлён» в программе перед следующим скором.
-
 ## NixOS
 
 Добавьте в свой /etc/nixos/flake.nix:
