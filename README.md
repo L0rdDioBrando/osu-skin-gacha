@@ -17,7 +17,7 @@
 Если удобнее через терминал:
 
 ```bash
-chmod +x osu-gacha-v0.5.0-linux-x86_64.AppImage
+chmod +x ./osu-gacha-v0.5.0-linux-x86_64.AppImage
 ./osu-gacha-v0.5.0-linux-x86_64.AppImage
 ```
 
