@@ -17,7 +17,7 @@ make install
 
 На Windows (нужен python 3.12+):
 
-- Соберите программу:
+Соберите программу:
 ```powershell
 python -m pip install uv
 uv sync
