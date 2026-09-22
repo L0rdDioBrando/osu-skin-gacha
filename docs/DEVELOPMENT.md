@@ -1,39 +1,154 @@
-# Работа с объединённым репозиторием
+# Как разрабатывать 
 
-- `main.py` — единая точка входа и установленная команда `skin-gacha`.
-- `modules/` — актуальный код приложения, включая OAuth/API v2; импорты используют пакет `modules`.
-- `assets/` — ресурсы и публичный каталог `drive_catalog.json`.
-- `oauth_worker/` — публичный код общего сервера SkillPush/osu!gacha, его тесты и конфигурация. Секреты и резервные копии сюда не перенесены. Повторный deploy для этого объединения не нужен.
-- `tests/`, `tests/run_tests.py` — регрессионные проверки; GUI-наборы запускаются в отдельных процессах.
-- `build_windows.py`, `build_release.py` — сборка Windows и чистого архива исходников.
-- Makefile, Nix и uv — сохранённые способы сборки участников проекта, согласованные с новым расположением кода и зависимостями.
+Соблюдать единую иерархию структуры проекта.
 
-Перед работой получите изменения команды. После законченной правки запустите соответствующие тесты, проверьте Changes в GitHub Desktop, сделайте Commit и Push. Не заменяйте содержимое репозитория ZIP-архивом старой версии.
+## Архитектура проекта
+- main.py - все импорты.
+- modules/ - весь код программы.
+- assets/ - ресурсы.
+- oauth_worker/ - настройки входа через osu! аккаунт.
 
-Для проверки чистой установки: соберите Windows ZIP, распакуйте в отдельную папку, выполните `osu!gacha.exe --self-check result.json`. Должны быть `ok: true`, `assets: true`, `frozen: true`. Затем проверьте пользовательский вход и сессию вручную. Не публикуйте `result.json` и пользовательские данные.
+## Сборка
 
-Linux: добавлены Secret Service, запуск через Wine и сборка AppImage в GitHub Actions. Проверка на реальном Linux пока не выполнена; порядок проверки — в LINUX.md.
-
-## Запуск исходников и тестов (для разработчиков)
-
-Python 3.12+ с Tcl/Tk:
-
-```sh
-python -m pip install -r requirements.txt
-python main.py
-python tests/run_tests.py
+На Linux (требуется python 3.12+, gnumake и Tkinter):
+```bash
+make install
 ```
 
-`python main.py` запускает приложение, это не установка. На Windows `run_skin_gacha.cmd` подготавливает окружение и запускает исходники. `install_dependencies.cmd` только устанавливает зависимости.
+На Windows (нужен python 3.12+):
 
-В Nix `nix develop` открывает окружение разработки; приложение автоматически не запускается. `nix build` собирает пакет без запуска. Для запуска собранного пакета выполните `./result/bin/skin-gacha`.
+- Соберите программу:
+```powershell
+python -m pip install uv
+uv sync
+uv run pyinstaller --windowed --add-data "assets;assets" --onefile --name osu-gacha --collect-all customtkinter --collect-all pygame --collect-all rosu_pp_py --collect-all mutagen main.py
+```
 
-Проверки хранятся в `tests/`, а не в корне. Запуск одного набора: `python -m unittest tests.test_linux_support`. Полный запуск включает окна Tk и требует графической сессии; каждый набор получает отдельный процесс. Тест настоящего Linux-хранилища выполняется только в специально подготовленном окружении CI. Сервер: `node --test oauth_worker/test/worker.test.mjs`.
+## Запуск
 
-## Сборка выпуска (для разработчиков)
+Linux:
+```bash
+./dist/skin-gacha
+```
 
-Windows: установите PyInstaller (`python -m pip install pyinstaller`), выполните `python build_windows.py`. Результат — Windows ZIP и `.dist/osu!gacha/`.
+Windows:
+```powershell
+.\dist\skin-gacha
+```
 
-Linux: `make install` устанавливает зависимости и собирает папку `dist/` с исполняемым файлом; это не установка в системный профиль. Упаковка AppImage описана отдельно в LINUX.md и предназначена для разработчика, который публикует готовый файл в Releases.
+## Структура (может устаревать/быть не точной)
 
-`python build_release.py` создаёт архив исходников с тестами, документацией и файлами сборки. Личные данные и среды разработки исключаются. Готовые Windows/AppImage-сборки не включают `tests/`.
+```
+.
+├── assets
+│   ├── __init__.py
+│   ├── drive_catalog.json
+│   ├── gacha-logo.png
+│   └── gacha.ico
+├── build
+│   └── osu-gacha
+│       ├── Analysis-00.toc
+│       ├── base_library.zip
+│       ├── EXE-00.toc
+│       ├── localpycs
+│       │   ├── pyimod01_archive.pyc
+│       │   ├── pyimod02_importers.pyc
+│       │   ├── pyimod03_ctypes.pyc
+│       │   └── struct.pyc
+│       ├── osu-gacha.pkg
+│       ├── PKG-00.toc
+│       ├── PYZ-00.pyz
+│       ├── PYZ-00.toc
+│       ├── warn-osu-gacha.txt
+│       └── xref-osu-gacha.html
+├── build_release.py
+├── build_windows.py
+├── dist
+│   └── osu-gacha
+├── docs
+│   ├── ARCHITECTURE.md
+│   ├── DEVELOPMENT.md
+│   ├── DEVELOPMENT1.md
+│   ├── HOW_TO_RUN.txt
+│   └── LINUX.md
+├── ensure_python.ps1
+├── flake.lock
+├── flake.nix
+├── install_dependencies.cmd
+├── main.py
+├── Makefile
+├── modules
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── gacha_api.cpython-313.pyc
+│   │   ├── gacha_app.cpython-313.pyc
+│   │   ├── gacha_config.cpython-313.pyc
+│   │   ├── gacha_connection.cpython-313.pyc
+│   │   ├── gacha_insights.cpython-313.pyc
+│   │   ├── gacha_previews.cpython-313.pyc
+│   │   ├── gacha_reports.cpython-313.pyc
+│   │   ├── gacha_rules.cpython-313.pyc
+│   │   ├── gacha_settings.cpython-313.pyc
+│   │   ├── gacha_setup.cpython-313.pyc
+│   │   ├── gacha_skin_apply.cpython-313.pyc
+│   │   ├── gacha_skins.cpython-313.pyc
+│   │   ├── gacha_sources.cpython-313.pyc
+│   │   ├── gacha_storage.cpython-313.pyc
+│   │   ├── gacha_updates.cpython-313.pyc
+│   │   ├── gacha_widgets.cpython-313.pyc
+│   │   └── skin_gacha.cpython-313.pyc
+│   ├── gacha_api.py
+│   ├── gacha_api_v2.py
+│   ├── gacha_app.py
+│   ├── gacha_audio.py
+│   ├── gacha_bootstrap.py
+│   ├── gacha_collection.py
+│   ├── gacha_config.py
+│   ├── gacha_connection.py
+│   ├── gacha_driver.py
+│   ├── gacha_insights.py
+│   ├── gacha_oauth.py
+│   ├── gacha_polish.py
+│   ├── gacha_previews.py
+│   ├── gacha_python_probe.py
+│   ├── gacha_reports.py
+│   ├── gacha_rules.py
+│   ├── gacha_settings.py
+│   ├── gacha_setup.py
+│   ├── gacha_skin_apply.py
+│   ├── gacha_skin_stats.py
+│   ├── gacha_skin_variants.py
+│   ├── gacha_skins.py
+│   ├── gacha_sources.py
+│   ├── gacha_storage.py
+│   ├── gacha_team.py
+│   ├── gacha_transfer.py
+│   ├── gacha_updates.py
+│   ├── gacha_widgets.py
+│   ├── music_library.py
+│   └── skin_gacha.py
+├── OAUTH_SETUP.md
+├── oauth_worker
+│   ├── package.json
+│   ├── pnpm-lock.yaml
+│   ├── pnpm-workspace.yaml
+│   ├── README.md
+│   ├── src
+│   │   └── worker.js
+│   ├── test
+│   │   └── worker.test.mjs
+│   └── wrangler.jsonc
+├── osu-gacha.spec
+├── pyproject.toml
+├── README.md
+├── run_skin_gacha.cmd
+├── shell.nix
+├── skin_gacha.egg-info
+│   ├── dependency_links.txt
+│   ├── entry_points.txt
+│   ├── PKG-INFO
+│   ├── requires.txt
+│   ├── SOURCES.txt
+│   └── top_level.txt
+└── uv.lock
+```
