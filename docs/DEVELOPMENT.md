@@ -45,36 +45,14 @@ Windows:
 │   ├── drive_catalog.json
 │   ├── gacha-logo.png
 │   └── gacha.ico
-├── build
-│   └── osu-gacha
-│       ├── Analysis-00.toc
-│       ├── base_library.zip
-│       ├── EXE-00.toc
-│       ├── localpycs
-│       │   ├── pyimod01_archive.pyc
-│       │   ├── pyimod02_importers.pyc
-│       │   ├── pyimod03_ctypes.pyc
-│       │   └── struct.pyc
-│       ├── osu-gacha.pkg
-│       ├── PKG-00.toc
-│       ├── PYZ-00.pyz
-│       ├── PYZ-00.toc
-│       ├── warn-osu-gacha.txt
-│       └── xref-osu-gacha.html
-├── build_release.py
-├── build_windows.py
-├── dist
-│   └── osu-gacha
 ├── docs
 │   ├── ARCHITECTURE.md
 │   ├── DEVELOPMENT.md
-│   ├── DEVELOPMENT1.md
 │   ├── HOW_TO_RUN.txt
 │   └── LINUX.md
 ├── ensure_python.ps1
 ├── flake.lock
 ├── flake.nix
-├── install_dependencies.cmd
 ├── main.py
 ├── Makefile
 ├── modules
@@ -138,17 +116,8 @@ Windows:
 │   ├── test
 │   │   └── worker.test.mjs
 │   └── wrangler.jsonc
-├── osu-gacha.spec
 ├── pyproject.toml
 ├── README.md
-├── run_skin_gacha.cmd
 ├── shell.nix
-├── skin_gacha.egg-info
-│   ├── dependency_links.txt
-│   ├── entry_points.txt
-│   ├── PKG-INFO
-│   ├── requires.txt
-│   ├── SOURCES.txt
-│   └── top_level.txt
 └── uv.lock
 ```
