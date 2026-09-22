@@ -17,8 +17,8 @@
 Если удобнее через терминал:
 
 ```bash
-chmod +x osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
-./osu-gacha-v0.5.0-linux-preview-x86_64.AppImage
+chmod +x ./osu-gacha-v0.5.0-linux-x86_64.AppImage
+./osu-gacha-v0.5.0-linux-x86_64.AppImage
 ```
 
 ## NixOS
@@ -50,7 +50,7 @@ inputs.skin-gacha.packages.${pkgs.stdenv.hostPlatform.system}.default
 
 Исходники: `modules/`; ресурсы: `assets/`; проверки: `tests/`; сервер авторизации: `oauth_worker/`.
 
-[Разработка и сборка](docs/DEVELOPMENT.md) · [Сборка AppImage и проверка Linux](docs/LINUX.md) · [OAuth](OAUTH_SETUP.md).
+[Разработка и сборка](docs/DEVELOPMENT.md) · [Сборка и проверка Linux](docs/LINUX.md) · [OAuth](OAUTH_SETUP.md).
 Обычным пользователям эти инструкции сборки не нужны: готовые файлы публикуются в Releases.
 
 ## English
