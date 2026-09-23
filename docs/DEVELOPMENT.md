@@ -48,9 +48,6 @@ Windows:
 ├── docs
 │   ├── ARCHITECTURE.md
 │   ├── DEVELOPMENT.md
-│   ├── HOW_TO_RUN.txt
-│   └── LINUX.md
-├── ensure_python.ps1
 ├── flake.lock
 ├── flake.nix
 ├── main.py
