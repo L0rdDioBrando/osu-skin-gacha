@@ -36,3 +36,5 @@ node_modules/
 test-output/
 gacha_session.json
 *.tmp
+ensure_python.ps1
+modules/__pycache__
