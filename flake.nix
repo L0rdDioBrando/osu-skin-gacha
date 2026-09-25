@@ -47,21 +47,14 @@
           pname = "skin-gacha";
           version = "0.5.0";
           src = ./.;
-          dontBuild = true;
           dontConfigure = true;
-
           nativeBuildInputs = [ pkgs.makeWrapper ];
-
+          buildPhase = ''
+            make build
+          '';
           installPhase = ''
-            mkdir -p $out/share/osu-gacha
             mkdir -p $out/bin
-            cp -r main.py assets $out/share/osu-gacha/
-            makeWrapper ${virtualenv}/bin/python $out/bin/osu-gacha \
-              --add-flags "$out/share/osu-gacha/main.py" \
-              --chdir "$out/share/osu-gacha" \
-              --prefix PYTHONPATH : "${pkgs.python3Packages.tkinter}/${pkgs.python3.sitePackages}:$out/share/osu-gacha" \
-              --set TCL_LIBRARY "${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}" \
-              --set TK_LIBRARY "${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
+            cp skin-gacha $out/bin/
           '';
         };
         devShells.default = pkgs.mkShell {
