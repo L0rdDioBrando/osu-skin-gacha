@@ -50,18 +50,14 @@
           dontConfigure = true;
           nativeBuildInputs = [
             pkgs.makeWrapper
-            pkgs.uv
-            virtualenv
           ];
-          buildPhase = ''
-            export UV_CACHE_DIR=$TMPDIR/.cache
-            make build
-          '';
+          dontBuild = true;
           installPhase = ''
-            mkdir -p $out/bin
-            cp skin-gacha $out/bin/
-            wrapProgram $out/bin/skin-gacha \
-              --prefix PATH : ${virtualenv}/bin
+            mkdir -p $out/share/skin-gacha $out/bin
+            cp -r main.py assets modules $out/share/skin-gacha/
+            makeWrapper ${virtualenv}/bin/python $out/bin/osu-gacha \
+              --add-flags "$out/share/skin-gacha/main.py" \
+              --chdir "$out/share/skin-gacha"
           '';
         };
         devShells.default = pkgs.mkShell {
