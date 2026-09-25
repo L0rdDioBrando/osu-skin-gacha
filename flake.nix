@@ -47,16 +47,12 @@
           version = "0.5.0";
           src = ./.;
           dontBuild = true;
+          dontConfigure = true;
+          format = "other";
           nativeBuildInputs = [
             pkgs.makeWrapper
-            pkgs.uv
-            virtualenv
           ];
-          preConfigure = ''
-            export UV_CACHE_DIR=$TMPDIR/.cache
-          '';
           installPhase = ''
-            uv sync
             mkdir -p $out/share/skin-gacha $out/bin
             cp -r main.py assets modules $out/share/skin-gacha/
             makeWrapper ${virtualenv}/bin/python $out/bin/skin-gacha \
