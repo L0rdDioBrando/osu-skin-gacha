@@ -39,10 +39,7 @@
                 uvOverlay
               ]
             );
-        #virtualenv = pythonSet.mkVirtualEnv "dev-env" workspace.deps.all;
-        virtualenv = pythonSet.mkVirtualEnv "dev-env" (
-          workspace.deps.all ++ [ pkgs.python3Packages.tkinter ]
-        );
+        virtualenv = pythonSet.mkVirtualEnv "dev-env" workspace.deps.all;
       in
       {
         packages.default = pkgs.stdenv.mkDerivation {
@@ -54,6 +51,7 @@
           format = "other";
           nativeBuildInputs = [
             pkgs.makeWrapper
+            pkgs.python313Packages.tkinter
           ];
           installPhase = ''
             mkdir -p $out/share/skin-gacha $out/bin
