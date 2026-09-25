@@ -48,20 +48,12 @@
           src = ./.;
           dontBuild = true;
           dontConfigure = true;
-          build-system = with pkgs.python3Packages; [
-            setuptools
-          ];
           nativeBuildInputs = [
             pkgs.makeWrapper
             pkgs.python313Packages.tkinter
           ];
           dependencies = with pkgs.python3Packages; [
             tkinter
-            customtkinter
-            requests
-            pillow
-            beautifulsoup4
-            pygame-ce
           ];
           makeWrapperArgs = [
             "--set TCL_LIBRARY ${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}"
