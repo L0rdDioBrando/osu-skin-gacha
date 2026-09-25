@@ -50,6 +50,7 @@
           dontConfigure = true;
           nativeBuildInputs = [
             pkgs.makeWrapper
+            virtualenv
             pkgs.uv
           ];
           dontBuild = true;
