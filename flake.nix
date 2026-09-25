@@ -27,86 +27,73 @@
           system:
           let
             pkgs = import nixpkgs { inherit system; };
-            workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
-            overlay = workspace.mkPyprojectOverlay {
-              sourcePreference = "wheel";
-            };
-            pythonSet =
-              (pkgs.callPackage pyproject-nix.build.packages {
-                python = pkgs.python3;
-              }).overrideScope
-                (
-                  pkgs.lib.composeManyExtensions [
-                    pyproject-build-systems.overlays.default
-                    overlay
-                  ]
-                );
-            venv = pythonSet.mkVirtualEnv "skin-gacha-env" workspace.deps.default;
+            tclLib = "${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}";
+            tkLib = "${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}";
+            tkinterPath = "${pkgs.python3Packages.tkinter}/${pkgs.python3.sitePackages}";
           in
-          f { inherit pkgs venv; }
+          f {
+            inherit
+              pkgs
+              tclLib
+              tkLib
+              tkinterPath
+              ;
+          }
         );
     in
     {
       devShells = forEachSupportedSystem (
-        { pkgs, venv }: {
+        {
+          pkgs,
+          tclLib,
+          tkLib,
+          tkinterPath,
+        }:
+        {
           default = pkgs.mkShell {
             packages = with pkgs; [
-              python3
               tk
               tcl
               stdenv.cc.cc.lib
               zlib
               gnumake
               uv
-              venv
             ];
 
             shellHook = ''
-              unset PYTHONPATH
-              export TCL_LIBRARY="${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}"
-              export TK_LIBRARY="${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
-              export PATH="${venv}/bin:$PATH"
-              export PYTHONPATH="${pkgs.python3Packages.tkinter}/${pkgs.python3.sitePackages}"
               python3 -m venv .venv
-              source .venv/bin/activate
+              unset PYTHONPATH
+              export TCL_LIBRARY="${tclLib}"
+              export TK_LIBRARY="${tkLib}"
+              export PYTHONPATH="${tkinterPath}"
             '';
           };
         }
       );
 
       packages = forEachSupportedSystem (
-        { pkgs, venv }: {
+        {
+          pkgs,
+          tclLib,
+          tkLib,
+          tkinterPath,
+        }:
+        {
           default = pkgs.stdenv.mkDerivation {
             pname = "skin-gacha";
             version = "0.5.0";
             src = ./.;
-            pyproject = true;
-            dontBuild = true;
-            dontConfigure = true;
-            dontUseCmakeConfigure = true;
-            build-system = with pkgs.python3Packages; [
-              setuptools
-            ];
-            dependencies = with pkgs.python3Packages; [
-              tkinter
-              customtkinter
-              requests
-              pillow
-              beautifulsoup4
-              pygame-ce
-            ];
+
             nativeBuildInputs = [ pkgs.makeWrapper ];
-            makeWrapperArgs = [
-              "--set TCL_LIBRARY ${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}"
-              "--set TK_LIBRARY ${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
-            ];
+
             installPhase = ''
+              python3 -m venv .venv
               mkdir -p $out/bin
-              makeWrapper ${venv}/bin/python $out/bin/skin-gacha \
-              --add-flags "$src/main.py" \
-              --prefix PYTHONPATH : "${pkgs.python3Packages.tkinter}/${pkgs.python3.sitePackages}:$src" \
-              --set TCL_LIBRARY "${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}" \
-              --set TK_LIBRARY "${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
+              makeWrapper $out/bin/python $out/bin/skin-gacha \
+                --add-flags "$src/main.py" \
+                --prefix PYTHONPATH : "${tkinterPath}:$src" \
+                --set TCL_LIBRARY "${tclLib}" \
+                --set TK_LIBRARY "${tkLib}"
             '';
           };
         }
