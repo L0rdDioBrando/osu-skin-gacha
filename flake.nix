@@ -46,13 +46,15 @@
           pname = "skin-gacha";
           version = "0.5.0";
           src = ./.;
-          dontConfigure = true;
+          dontBuild = true;
           nativeBuildInputs = [
             pkgs.makeWrapper
             pkgs.uv
             virtualenv
           ];
-          dontBuild = true;
+          preConfigure = ''
+            export UV_CACHE_DIR=$TMPDIR/.cache
+          '';
           installPhase = ''
             uv sync
             mkdir -p $out/share/skin-gacha $out/bin
