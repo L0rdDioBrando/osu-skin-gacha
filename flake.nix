@@ -48,8 +48,12 @@
           version = "0.5.0";
           src = ./.;
           dontConfigure = true;
-          nativeBuildInputs = [ pkgs.makeWrapper ];
+          nativeBuildInputs = [
+            pkgs.makeWrapper
+            pkgs.uv
+          ];
           buildPhase = ''
+            uv sync
             make build
           '';
           installPhase = ''
