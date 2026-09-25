@@ -43,7 +43,25 @@
         virtualenv = pythonSet.mkVirtualEnv "dev-env" workspace.deps.all;
       in
       {
-        packages.default = virtualenv;
+        packages.default = pkgs.stdenv.mkDerivation {
+          pname = "skin-gacha";
+          version = "0.5.0";
+          src = ./.;
+          dontBuild = true;
+          dontConfigure = true;
+          dontUseCmakeConfigure = true;
+
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+
+          installPhase = ''
+            mkdir -p $out/bin
+            makeWrapper ${virtualenv}/bin/python$out/bin/skin-gacha \
+              --add-flags "$src/main.py" \
+              --prefix PYTHONPATH : "${pkgs.python3Packages.tkinter}/${pkgs.python3.sitePackages}:$src" \
+              --set TCL_LIBRARY "${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}" \
+              --set TK_LIBRARY "${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
+          '';
+        };
         devShells.default = pkgs.mkShell {
           packages = [
             pkgs.gnumake
