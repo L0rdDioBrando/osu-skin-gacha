@@ -39,7 +39,6 @@
                 uvOverlay
               ]
             );
-
         virtualenv = pythonSet.mkVirtualEnv "dev-env" workspace.deps.all;
       in
       {
@@ -50,8 +49,8 @@
           dontConfigure = true;
           nativeBuildInputs = [
             pkgs.makeWrapper
-            virtualenv
             pkgs.uv
+            virtualenv
           ];
           dontBuild = true;
           installPhase = ''
