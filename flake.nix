@@ -39,7 +39,10 @@
                 uvOverlay
               ]
             );
-        virtualenv = pythonSet.mkVirtualEnv "dev-env" workspace.deps.all;
+        #virtualenv = pythonSet.mkVirtualEnv "dev-env" workspace.deps.all;
+        virtualenv = pythonSet.mkVirtualEnv "dev-env" (
+          workspace.deps.all ++ [ pkgs.python3Packages.tkinter ]
+        );
       in
       {
         packages.default = pkgs.stdenv.mkDerivation {
