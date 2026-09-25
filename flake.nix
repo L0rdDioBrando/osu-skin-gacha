@@ -51,14 +51,17 @@
           nativeBuildInputs = [
             pkgs.makeWrapper
             pkgs.uv
+            virtualenv
           ];
           buildPhase = ''
-            uv sync
+            export UV_CACHE_DIR=$TMPDIR/.cache
             make build
           '';
           installPhase = ''
             mkdir -p $out/bin
             cp skin-gacha $out/bin/
+            wrapProgram $out/bin/skin-gacha \
+              --prefix PATH : ${virtualenv}/bin
           '';
         };
         devShells.default = pkgs.mkShell {
