@@ -48,10 +48,24 @@
           src = ./.;
           dontBuild = true;
           dontConfigure = true;
-          format = "other";
+          build-system = with pkgs.python3Packages; [
+            setuptools
+          ];
           nativeBuildInputs = [
             pkgs.makeWrapper
             pkgs.python313Packages.tkinter
+          ];
+          dependencies = with pkgs.python3Packages; [
+            tkinter
+            customtkinter
+            requests
+            pillow
+            beautifulsoup4
+            pygame-ce
+          ];
+          makeWrapperArgs = [
+            "--set TCL_LIBRARY ${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}"
+            "--set TK_LIBRARY ${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
           ];
           installPhase = ''
             mkdir -p $out/share/skin-gacha $out/bin
