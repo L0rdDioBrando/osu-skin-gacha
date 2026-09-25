@@ -12,7 +12,7 @@
 
 На Linux (требуется python 3.12+, gnumake и Tkinter):
 ```bash
-make install
+make build
 ```
 
 На Windows (нужен python 3.12+):
