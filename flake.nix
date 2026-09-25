@@ -50,12 +50,14 @@
           dontConfigure = true;
           nativeBuildInputs = [
             pkgs.makeWrapper
+            pkgs.uv
           ];
           dontBuild = true;
           installPhase = ''
+            uv sync
             mkdir -p $out/share/skin-gacha $out/bin
             cp -r main.py assets modules $out/share/skin-gacha/
-            makeWrapper ${virtualenv}/bin/python $out/bin/osu-gacha \
+            makeWrapper ${virtualenv}/bin/python $out/bin/skin-gacha \
               --add-flags "$out/share/skin-gacha/main.py" \
               --chdir "$out/share/skin-gacha"
           '';
