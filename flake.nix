@@ -84,7 +84,10 @@
             version = "0.5.0";
             src = ./.;
 
-            nativeBuildInputs = [ pkgs.makeWrapper ];
+            nativeBuildInputs = with pkgs; [
+              makeWrapper
+              python3
+            ];
 
             installPhase = ''
               python3 -m venv .venv
