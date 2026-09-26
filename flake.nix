@@ -39,40 +39,65 @@
                 uvOverlay
               ]
             );
-        virtualenv = pythonSet.mkVirtualEnv "dev-env" workspace.deps.all;
+        #virtualenv = pythonSet.mkVirtualEnv "dev-env" workspace.deps.all;
+        virtualenv = pythonSet.mkVirtualEnv "dev-env" (
+          workspace.deps.all
+          // {
+            inherit (pythonSet) tkinter;
+          }
+        );
       in
       {
+        /*
+          default = pkgs.stdenv.mkDerivation {
+            pname = "skin-gacha";
+            version = "0.5.0";
+            src = ./.;
+            pyproject = true;
+            dontBuild = true;
+            dontConfigure = true;
+            dontUseCmakeConfigure = true;
+            build-system = with pkgs.python3Packages; [
+              setuptools
+            ];
+            dependencies = with pkgs.python3Packages; [
+              tkinter
+              customtkinter
+              requests
+              pillow
+              beautifulsoup4
+              pygame-ce
+            ];
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            makeWrapperArgs = [
+              "--set TCL_LIBRARY ${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}"
+              "--set TK_LIBRARY ${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
+            ];
+            installPhase = ''
+              mkdir -p $out/bin
+              makeWrapper ${virtualenv}/bin/python $out/bin/skin-gacha \
+              --add-flags "$src/main.py" \
+              --prefix PYTHONPATH : "${pkgs.python3Packages.tkinter}/${pkgs.python3.sitePackages}:$src" \
+              --set TCL_LIBRARY "${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}" \
+              --set TK_LIBRARY "${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
+            '';
+          };
+        */
         default = pkgs.stdenv.mkDerivation {
           pname = "skin-gacha";
           version = "0.5.0";
           src = ./.;
-          pyproject = true;
           dontBuild = true;
           dontConfigure = true;
           dontUseCmakeConfigure = true;
-          build-system = with pkgs.python3Packages; [
-            setuptools
-          ];
-          dependencies = with pkgs.python3Packages; [
-            tkinter
-            customtkinter
-            requests
-            pillow
-            beautifulsoup4
-            pygame-ce
-          ];
           nativeBuildInputs = [ pkgs.makeWrapper ];
-          makeWrapperArgs = [
-            "--set TCL_LIBRARY ${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}"
-            "--set TK_LIBRARY ${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
-          ];
           installPhase = ''
             mkdir -p $out/bin
             makeWrapper ${virtualenv}/bin/python $out/bin/skin-gacha \
-            --add-flags "$src/main.py" \
-            --prefix PYTHONPATH : "${pkgs.python3Packages.tkinter}/${pkgs.python3.sitePackages}:$src" \
-            --set TCL_LIBRARY "${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}" \
-            --set TK_LIBRARY "${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
+              --add-flags "$src/main.py" \
+              --prefix PYTHONPATH : "$src" \
+              --set TCL_LIBRARY "${pkgs.tcl}/lib/tcl${pkgs.lib.versions.majorMinor pkgs.tcl.version}" \
+              --set TK_LIBRARY "${pkgs.tk}/lib/tk${pkgs.lib.versions.majorMinor pkgs.tk.version}"
           '';
         };
         devShells.default = pkgs.mkShell {
