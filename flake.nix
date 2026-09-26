@@ -43,7 +43,7 @@
         virtualenv = pythonSet.mkVirtualEnv "dev-env" (
           workspace.deps.all
           // {
-            inherit (pythonSet) tkinter;
+            tkinter = pkgs.python3Packages.tkinter;
           }
         );
       in
