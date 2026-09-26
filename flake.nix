@@ -83,7 +83,7 @@
             '';
           };
         */
-        default = pkgs.stdenv.mkDerivation {
+        packages.default = pkgs.stdenv.mkDerivation {
           pname = "skin-gacha";
           version = "0.5.0";
           src = ./.;
