@@ -2,7 +2,6 @@ run:
 	python main.py
 
 depens:
-	python -m pip install uv
 	uv sync
 
 build:
